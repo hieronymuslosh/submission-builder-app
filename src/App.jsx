@@ -81,6 +81,7 @@ const App = () => {
   const [excelMeta, setExcelMeta] = useState(null);
   const [excelError, setExcelError] = useState('');
   const [isParsingExcel, setIsParsingExcel] = useState(false);
+  const [autofillSummary, setAutofillSummary] = useState(null);
 
   // Ref for the div containing the generated email body
   const emailBodyDivRef = useRef(null);
@@ -525,19 +526,44 @@ const App = () => {
     }
 
     // Estimated sales (if present)
+    let cleanedSales = '';
     if (fields.estimatedSalesRaw) {
-      const cleaned = String(fields.estimatedSalesRaw).replace(/[^0-9.]/g, '');
-      if (cleaned) {
-        setEstimatedSales(cleaned);
+      cleanedSales = String(fields.estimatedSalesRaw).replace(/[^0-9.]/g, '');
+      if (cleanedSales) {
+        setEstimatedSales(cleanedSales);
         setIsEstimatedSalesUnknown(false);
       }
     }
 
-    // From SOV: max any one location
-    if (fields.maxAnyOneLocationFromSov) {
-      const cleaned = String(fields.maxAnyOneLocationFromSov).replace(/[^0-9.]/g, '');
-      if (cleaned) setMaxAnyOneLocation(cleaned);
+    // From SOV: total stock + max any one location
+    let cleanedMaxTiv = '';
+    let cleanedAvgTiv = '';
+    let cleanedMaxAny = '';
+
+    if (fields.sovTotalMaxStock) {
+      cleanedMaxTiv = String(fields.sovTotalMaxStock).replace(/[^0-9.]/g, '');
+      if (cleanedMaxTiv) setMaxTIV(cleanedMaxTiv);
     }
+
+    if (fields.sovTotalAvgStock) {
+      cleanedAvgTiv = String(fields.sovTotalAvgStock).replace(/[^0-9.]/g, '');
+      if (cleanedAvgTiv) setAverageTIV(cleanedAvgTiv);
+    }
+
+    if (fields.maxAnyOneLocationFromSov) {
+      cleanedMaxAny = String(fields.maxAnyOneLocationFromSov).replace(/[^0-9.]/g, '');
+      if (cleanedMaxAny) setMaxAnyOneLocation(cleanedMaxAny);
+    }
+
+    // Store summary (show blanks if missing)
+    setAutofillSummary({
+      insuredName: fields.insuredName || '',
+      inceptionDate: rawDate || '',
+      estimatedSales: cleanedSales || '',
+      maxTIV: cleanedMaxTiv,
+      averageTIV: cleanedAvgTiv,
+      maxAnyOneLocation: cleanedMaxAny,
+    });
   };
 
   return (
@@ -599,6 +625,32 @@ const App = () => {
                   v1: insured name/website/address/inception date/status only (best-effort)
                 </div>
               </div>
+
+              {autofillSummary && (
+                <div className="rounded-md bg-white border border-gray-200 p-3">
+                  <div className="text-sm font-semibold text-gray-800 mb-2">Autofill results</div>
+                  <ul className="text-sm text-gray-700 space-y-1">
+                    <li>
+                      <span className="font-medium">Insured name:</span> {autofillSummary.insuredName || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Inception date:</span> {autofillSummary.inceptionDate || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Estimated sales:</span> {autofillSummary.estimatedSales || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Max TIV:</span> {autofillSummary.maxTIV || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Average TIV:</span> {autofillSummary.averageTIV || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Max any one location:</span> {autofillSummary.maxAnyOneLocation || '(blank)'}
+                    </li>
+                  </ul>
+                </div>
+              )}
 
               <div className="rounded-md bg-white border border-gray-200 p-3">
                 <div className="text-sm font-semibold text-gray-800 mb-2">Raw text preview</div>
