@@ -583,6 +583,17 @@ const App = () => {
     if (outgoingPrimary) setOutgoingPrimaryPct(outgoingPrimary);
     if (outgoingContingent) setOutgoingContingentPct(outgoingContingent);
 
+    // Domestic / international splits
+    const incomingDomestic = cleanPct(fields.incomingDomesticPctRaw);
+    const incomingInternational = cleanPct(fields.incomingInternationalPctRaw);
+    const outgoingDomestic = cleanPct(fields.outgoingDomesticPctRaw) || incomingDomestic;
+    const outgoingInternational = cleanPct(fields.outgoingInternationalPctRaw) || incomingInternational;
+
+    if (incomingDomestic) setIncomingDomesticPct(incomingDomestic);
+    if (incomingInternational) setIncomingInternationalPct(incomingInternational);
+    if (outgoingDomestic) setOutgoingDomesticPct(outgoingDomestic);
+    if (outgoingInternational) setOutgoingInternationalPct(outgoingInternational);
+
     // From SOV: total stock + max any one location
     let cleanedMaxTiv = '';
     let cleanedAvgTiv = '';
@@ -617,6 +628,10 @@ const App = () => {
       outgoingTransitVolumeTotal: cleanedOutgoingTransit,
       primaryPct: outgoingPrimary || incomingPrimary,
       contingentPct: outgoingContingent || incomingContingent,
+      incomingDomesticPct: incomingDomestic,
+      incomingInternationalPct: incomingInternational,
+      outgoingDomesticPct: outgoingDomestic,
+      outgoingInternationalPct: outgoingInternational,
     });
   };
 
@@ -719,6 +734,18 @@ const App = () => {
                     </li>
                     <li>
                       <span className="font-medium">Contingent %:</span> {autofillSummary.contingentPct || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Incoming domestic %:</span> {autofillSummary.incomingDomesticPct || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Incoming international %:</span> {autofillSummary.incomingInternationalPct || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Outgoing domestic %:</span> {autofillSummary.outgoingDomesticPct || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Outgoing international %:</span> {autofillSummary.outgoingInternationalPct || '(blank)'}
                     </li>
                   </ul>
                 </div>

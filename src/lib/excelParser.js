@@ -126,27 +126,39 @@ export const extractFieldsFromTemplate = (wb) => {
   fields.incomingTransitVolumeTotalRaw = getValueNearLabel(app, 'Total annual values received:', { right: 12, down: 3 });
   fields.outgoingTransitVolumeTotalRaw = getValueNearLabel(app, 'Total annual values dispatched:', { right: 12, down: 3 });
 
-  // This label appears twice (incoming + outgoing). We capture both by reading the cells explicitly.
+  // These labels appear multiple times (incoming + outgoing). We capture by scanning positions + reading right.
   const insuredRespPositions = [];
   const supplierRespPositions = [];
   const customerRespPositions = [];
+
+  // Domestic/international split labels
+  const domesticOriginPositions = [];
+  const intlOriginPositions = [];
+  const domesticDestPositions = [];
+  const intlDestPositions = [];
+
   {
-    const merges = app['!merges'] || [];
-    const maxR = 140;
+    const maxR = 160;
     const maxC = 30;
     const getMerged = (r, c) => getMergedDisplayValue(app, r, c);
+
     for (let r = 0; r < maxR; r++) {
       for (let c = 0; c < maxC; c++) {
         const t = getMerged(r, c).toLowerCase();
         if (!t) continue;
+
         if (t === '% insured responsible for insurance') insuredRespPositions.push({ r, c });
         if (t === '% supplier responsible for insurance') supplierRespPositions.push({ r, c });
         if (t === '% customer responsible for insurance') customerRespPositions.push({ r, c });
+
+        if (t === 'domestic points of origin') domesticOriginPositions.push({ r, c });
+        if (t === 'international points of origin') intlOriginPositions.push({ r, c });
+        if (t === 'domestic destinations') domesticDestPositions.push({ r, c });
+        if (t === 'international destinations') intlDestPositions.push({ r, c });
       }
     }
 
     const readRight = (pos) => {
-      // in dummy.xlsx value is a few cols to the right (e.g. E -> H)
       for (let cc = pos.c + 1; cc <= pos.c + 10; cc++) {
         const v = getMerged(pos.r, cc);
         if (v) return v;
@@ -161,6 +173,14 @@ export const extractFieldsFromTemplate = (wb) => {
     // Outgoing (second occurrence)
     fields.outgoingPrimaryPctRaw = insuredRespPositions[1] ? readRight(insuredRespPositions[1]) : '';
     fields.outgoingContingentPctRaw = customerRespPositions[0] ? readRight(customerRespPositions[0]) : '';
+
+    // Incoming domestic/international
+    fields.incomingDomesticPctRaw = domesticOriginPositions[0] ? readRight(domesticOriginPositions[0]) : '';
+    fields.incomingInternationalPctRaw = intlOriginPositions[0] ? readRight(intlOriginPositions[0]) : '';
+
+    // Outgoing domestic/international
+    fields.outgoingDomesticPctRaw = domesticDestPositions[0] ? readRight(domesticDestPositions[0]) : '';
+    fields.outgoingInternationalPctRaw = intlDestPositions[0] ? readRight(intlDestPositions[0]) : '';
   }
 
   // SOV mappings (v1)
