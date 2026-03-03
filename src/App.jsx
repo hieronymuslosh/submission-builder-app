@@ -68,7 +68,6 @@ const App = () => {
   const [generatedEmailSubject, setGeneratedEmailSubject] = useState(''); // Stores plain text subject
   const [copySuccess, setCopySuccess] = useState('');
   const [isFetchingNarrative, setIsFetchingNarrative] = useState(false);
-  const [isFetchingInterest, setIsFetchingInterest] = useState(false);
 
   // It’s referenced in fetchInsuredAddress(), so define it (even if we don’t currently render a button)
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
@@ -273,22 +272,6 @@ const App = () => {
     const mockedNarrative = `This is a *mocked* narrative for ${insuredName}. It's a leading global logistics provider specializing in freight forwarding, warehousing, and supply chain management. This is for demonstration purposes.`;
     setInsuredNarrative(mockedNarrative);
     setIsFetchingNarrative(false);
-  };
-
-  // Function to fetch insured interest using Google Search and LLM (MOCKED)
-  const fetchInterest = async () => {
-    if (!insuredName && !insuredNarrative) {
-      setInterest('Please enter Insured Name or Insured Narrative to fetch interest.');
-      return;
-    }
-
-    setIsFetchingInterest(true);
-    setInterest('Fetching interest, please wait...');
-
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const mockedInterest = `*Mocked* Interest: Electronics, Textiles, Perishable Goods, Automotive Parts. This is for demonstration purposes.`;
-    setInterest(mockedInterest);
-    setIsFetchingInterest(false);
   };
 
   // Function to fetch insured address using Google Search and LLM (MOCKED)
@@ -549,10 +532,21 @@ const App = () => {
       catLimitState = String(fields.catLimitStockState);
     }
 
+    // Loss history (if present)
+    if (Array.isArray(fields.lossHistory5y) && fields.lossHistory5y.length) {
+      const padded = [...fields.lossHistory5y];
+      while (padded.length < 5) padded.push('');
+      setLossHistory(padded.slice(0, 5));
+    }
+
     // Store summary (show blanks if missing)
+    const lossFilledCount = (Array.isArray(fields.lossHistory5y) ? fields.lossHistory5y : [])
+      .filter((x) => String(x || '').trim() && String(x || '').trim().toLowerCase() !== 'no losses').length;
+
     setAutofillSummary({
       ranAt: new Date().toISOString(),
       mode,
+      lossFilledCount,
       insuredName: fields.insuredName || '',
       inceptionDate: rawDate || '',
       estimatedSales: cleanedSales || '',
@@ -657,6 +651,9 @@ const App = () => {
                       <span className="font-medium">Last run:</span>{' '}
                       {autofillSummary.ranAt ? new Date(autofillSummary.ranAt).toLocaleString() : '(unknown)'}
                       {autofillSummary.mode ? ` (${autofillSummary.mode})` : ''}
+                    </li>
+                    <li>
+                      <span className="font-medium">Loss history filled:</span> {`${autofillSummary.lossFilledCount ?? 0}/5`}
                     </li>
                     <li>
                       <span className="font-medium">Insured name:</span> {autofillSummary.insuredName || '(blank)'}
@@ -904,17 +901,6 @@ const App = () => {
               onChange={(e) => setInterest(e.target.value)}
               placeholder="Specify the type of goods or commodities being insured."
             ></textarea>
-            <button
-              onClick={fetchInterest}
-              disabled={isFetchingInterest || (!insuredName && !insuredNarrative)}
-              className={`mt-2 py-2 px-4 rounded-md shadow-sm text-sm font-medium transition duration-300 ease-in-out ${
-                isFetchingInterest
-                  ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}
-            >
-              {isFetchingInterest ? 'Fetching Interest...' : 'Fetch Interest'}
-            </button>
           </div>
 
           {/* Transit Details Section */}

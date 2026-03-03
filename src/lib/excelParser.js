@@ -152,6 +152,64 @@ export const extractFieldsFromTemplate = (wb) => {
     fields.outgoingTransitBovRaw = bovPositions[1] ? readRight(bovPositions[1]) : '';
   }
 
+  // Loss history (5y) — look for the Claims/Loss table
+  fields.lossHistory5y = [];
+  {
+    const maxR = 240;
+    const maxC = 20;
+    const getMerged = (r, c) => getMergedDisplayValue(app, r, c);
+
+    let headerRow = -1;
+    for (let r = 0; r < maxR; r++) {
+      // Find the row with "Total Incurred" and "# of claims"
+      let hasTotal = false;
+      let hasNumClaims = false;
+      for (let c = 0; c < maxC; c++) {
+        const t = getMerged(r, c).toLowerCase();
+        if (t === 'total incurred') hasTotal = true;
+        if (t === '# of claims' || t === '# of claim' || t === 'no. of claims') hasNumClaims = true;
+      }
+      if (hasTotal && hasNumClaims) {
+        headerRow = r;
+        break;
+      }
+    }
+
+    if (headerRow >= 0) {
+      // In dummy.xlsx columns are:
+      // Total Incurred (col D), # of claims (col E), Largest Claim (col F), Claim Description (col G/H)
+      // We'll just read a small range and synthesise a per-row string.
+      const rows = [];
+      for (let i = 1; i <= 5; i++) {
+        const rr = headerRow + i;
+        const incurred = norm(getMerged(rr, 3));
+        const numClaims = norm(getMerged(rr, 4));
+        const largest = norm(getMerged(rr, 5));
+        const desc = norm(getMerged(rr, 6)) || norm(getMerged(rr, 7));
+
+        const n = parseFloat((numClaims || '').replace(/[^0-9.]/g, ''));
+
+        let line = '';
+        if (Number.isFinite(n) && n === 0) {
+          line = 'No losses';
+        } else {
+          const parts = [];
+          if (numClaims) parts.push(`${numClaims} claim${n === 1 ? '' : 's'}`);
+          if (incurred) parts.push(`Incurred: ${incurred}`);
+          if (largest) parts.push(`Largest: ${largest}`);
+          if (desc) parts.push(desc);
+          line = parts.join(' — ');
+        }
+
+        rows.push(line);
+      }
+
+      // Ensure exactly 5 entries
+      while (rows.length < 5) rows.push('');
+      fields.lossHistory5y = rows.slice(0, 5);
+    }
+  }
+
   // Stock BOV: prefer SOV label; fallback to App Form if we ever add it there
   fields.stockBovRaw = '';
 
