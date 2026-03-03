@@ -67,7 +67,6 @@ const App = () => {
   const [generatedEmailBody, setGeneratedEmailBody] = useState(''); // Stores HTML body
   const [generatedEmailSubject, setGeneratedEmailSubject] = useState(''); // Stores plain text subject
   const [copySuccess, setCopySuccess] = useState('');
-  const [isRandomizeEnabled, setIsRandomizeEnabled] = useState(false);
   const [isFetchingNarrative, setIsFetchingNarrative] = useState(false);
   const [isFetchingInterest, setIsFetchingInterest] = useState(false);
 
@@ -107,149 +106,6 @@ const App = () => {
     setLossHistory(newLossHistory);
   };
 
-  // Function to generate random data for fields
-  const randomizeFields = () => {
-    const randomDate = new Date(
-      Date.now() - Math.floor(Math.random() * 365 * 5 * 24 * 60 * 60 * 1000),
-    )
-      .toISOString()
-      .split('T')[0];
-    setInceptionDate(randomDate);
-    setIsDateTBA(Math.random() < 0.2); // 20% chance of TBA
-
-    const businessTypes = ['Stock Only', 'Stock Throughput', 'Transit Only'];
-    setBusinessType(businessTypes[Math.floor(Math.random() * businessTypes.length)]);
-
-    const businessStatuses = ['New', 'Renewal'];
-    const randomBusinessStatus = businessStatuses[Math.floor(Math.random() * businessStatuses.length)];
-    setBusinessStatus(randomBusinessStatus);
-
-    const insuredNames = [
-      'Global Logistics Corp.',
-      'Oceanic Importers Ltd.',
-      'Trans-Continental Freight',
-      'Coastal Supply Co.',
-      'Apex Distributors Inc.',
-    ];
-    const randomInsuredName = insuredNames[Math.floor(Math.random() * insuredNames.length)];
-    setInsuredName(randomInsuredName);
-
-    const randomWebsites = [
-      'www.globallogistics.com',
-      'www.oceanicimports.net',
-      'www.transcontinentalfreight.org',
-      'www.coastalsupply.co',
-      'www.apexdistributors.biz',
-      'www.example-company.com',
-    ];
-    setInsuredWebsite(randomWebsites[Math.floor(Math.random() * randomWebsites.length)]);
-
-    const randomAddresses = [
-      '123 Main St, Anytown, CA 90210, USA',
-      '456 Ocean Ave, Seaville, FL 33101, USA',
-      '789 Industrial Rd, Metro City, TX 75001, USA',
-      '101 Commerce Blvd, Portsville, WA 98001, USA',
-      '222 Business Park Dr, Techville, NY 10001, USA',
-    ];
-    setInsuredAddress(randomAddresses[Math.floor(Math.random() * randomAddresses.length)]);
-
-    setInsuredNarrative(
-      `This is a randomly generated narrative for ${randomInsuredName}. The insured specializes in global distribution of various goods, utilizing diverse transport modes and storage facilities across key international hubs.`,
-    );
-
-    const interests = [
-      'Electronics',
-      'Textiles',
-      'Perishable Goods',
-      'Automotive Parts',
-      'Industrial Machinery',
-      'Pharmaceuticals',
-      'Luxury Goods',
-    ];
-    setInterest(interests[Math.floor(Math.random() * interests.length)]);
-
-    const bovOptions = ['Selling price', 'Replacement Cost', 'CIF + 10%', 'Other'];
-    const randomBov = () => bovOptions[Math.floor(Math.random() * bovOptions.length)];
-
-    const setRandomBovAndOther = (setter, otherSetter) => {
-      const selectedBov = randomBov();
-      setter(selectedBov);
-      if (selectedBov === 'Other') {
-        otherSetter(`Custom BOV ${Math.floor(Math.random() * 100)}`);
-      } else {
-        otherSetter('');
-      }
-    };
-
-    setRandomBovAndOther(setBovStock, setBovStockOther);
-    setRandomBovAndOther(setBovIncomingTransit, setBovIncomingTransitOther);
-    setRandomBovAndOther(setBovOutgoingTransit, setBovOutgoingTransitOther);
-
-    // Random monetary values (Proposed)
-    setMaxTIV(String(Math.floor(Math.random() * (50000000 - 1000000) + 1000000)));
-    setAverageTIV(String(Math.floor(Math.random() * (10000000 - 100000) + 100000)));
-    setMaxAnyOneLocation(String(Math.floor(Math.random() * (15000000 - 500000) + 500000)));
-    setMaxConveyance(String(Math.floor(Math.random() * (2000000 - 100000) + 100000)));
-    setAverageConveyance(String(Math.floor(Math.random() * (500000 - 50000) + 50000)));
-    setEstimatedSales(String(Math.floor(Math.random() * (100000000 - 10000000) + 10000000)));
-    setIsEstimatedSalesUnknown(Math.random() < 0.1); // 10% chance of unknown sales
-
-    // Random deductibles
-    setDeductibleAOPStock(String(Math.floor(Math.random() * (25000 - 5000) + 5000)));
-    // FIX: remove extra paren + keep consistent integer formatting
-    setDeductibleCATStock(String(Math.floor(Math.random() * (50000 - 10000) + 10000)));
-    setDeductibleTransit(String(Math.floor(Math.random() * (10000 - 1000) + 1000)));
-
-    // Random limits
-    setLimitAOPStock(String(Math.floor(Math.random() * (5000000 - 500000) + 500000)));
-    setLimitCATStock(String(Math.floor(Math.random() * (10000000 - 1000000) + 1000000)));
-    setLimitTransit(String(Math.floor(Math.random() * (2000000 - 200000) + 200000)));
-
-    // Random transit volume totals
-    setIncomingTransitVolumeTotal(String(Math.floor(Math.random() * (50000000 - 5000000) + 5000000)));
-    setOutgoingTransitVolumeTotal(String(Math.floor(Math.random() * (70000000 - 7000000) + 7000000)));
-
-    // Random percentages for splits (ensuring they sum to 100 for each pair)
-    const randIntPct = Math.floor(Math.random() * 100); // 0-100
-    setIncomingInternationalPct(String(randIntPct));
-    setIncomingDomesticPct(String(100 - randIntPct));
-
-    const randPrimPct = Math.floor(Math.random() * 100); // 0-100
-    setIncomingPrimaryPct(String(randPrimPct));
-    setIncomingContingentPct(String(100 - randPrimPct));
-
-    const randOutIntPct = Math.floor(Math.random() * 100); // 0-100
-    setOutgoingInternationalPct(String(randOutIntPct));
-    setOutgoingDomesticPct(String(100 - randOutIntPct));
-
-    const randOutPrimPct = Math.floor(Math.random() * 100); // 0-100
-    setOutgoingPrimaryPct(String(randOutPrimPct));
-    setOutgoingContingentPct(String(100 - randOutPrimPct));
-
-    // Random loss history
-    const randomLosses = Array(5)
-      .fill('')
-      .map(() => {
-        const r = Math.random();
-        if (r < 0.4) return 'No losses';
-        if (r < 0.7) return `1 claim, USD ${Math.floor(Math.random() * (50000 - 1000) + 1000).toLocaleString('en-US')}`;
-        return `Multiple claims, total USD ${Math.floor(Math.random() * (200000 - 10000) + 10000).toLocaleString('en-US')}`;
-      });
-    setLossHistory(randomLosses);
-
-    setTargetPremium(String(Math.floor(Math.random() * (100000 - 10000) + 10000)));
-    setBrokerage(String((Math.random() * (30 - 15) + 15).toFixed(1))); // Random brokerage between 15% and 30%
-
-    // Random Expiring Premium if businessStatus is Renewal
-    if (randomBusinessStatus === 'Renewal') {
-      setExpiringPremium(String(Math.floor(Math.random() * (90000 - 8000) + 8000))); // Slightly lower than proposed
-    } else {
-      setExpiringPremium('');
-    }
-
-    setGeneratedEmailBody(''); // Clear generated email when randomizing
-    setGeneratedEmailSubject('');
-  };
   // Function to generate the email content based on current state
   const generateEmail = () => {
     const { subject, bodyHtml } = buildEmail({
@@ -341,60 +197,6 @@ const App = () => {
         console.error('Failed to copy subject:', err);
       }
       setTimeout(() => setCopySuccess(''), 3000);
-    }
-  };
-
-  const handleRandomizeToggle = (e) => {
-    const checked = e.target.checked;
-    setIsRandomizeEnabled(checked);
-    if (checked) {
-      randomizeFields();
-    } else {
-      // Clear fields if randomize is unchecked
-      setInceptionDate('');
-      setIsDateTBA(false);
-      setBusinessType('');
-      setBusinessStatus('');
-      setInsuredName('');
-      setInsuredWebsite('');
-      setInsuredAddress('');
-      setInsuredNarrative('');
-      setInterest('');
-      setBovStock('');
-      setBovStockOther('');
-      setBovIncomingTransit('');
-      setBovIncomingTransitOther('');
-      setBovOutgoingTransit('');
-      setBovOutgoingTransitOther('');
-      setMaxTIV('');
-      setAverageTIV('');
-      setMaxAnyOneLocation('');
-      setDeductibleAOPStock('');
-      setDeductibleCATStock('');
-      setLimitAOPStock('');
-      setLimitCATStock('');
-      setMaxConveyance('');
-      setAverageConveyance('');
-      setEstimatedSales('');
-      setIsEstimatedSalesUnknown(false);
-      setDeductibleTransit('');
-      setLimitTransit('');
-      setIncomingTransitVolumeTotal('');
-      setOutgoingTransitVolumeTotal('');
-      setIncomingDomesticPct('');
-      setIncomingInternationalPct('');
-      setIncomingPrimaryPct('');
-      setIncomingContingentPct('');
-      setOutgoingDomesticPct('');
-      setOutgoingInternationalPct('');
-      setOutgoingPrimaryPct('');
-      setOutgoingContingentPct('');
-      setLossHistory(Array(5).fill(''));
-      setTargetPremium('');
-      setBrokerage('');
-      setGeneratedEmailBody('');
-      setGeneratedEmailSubject('');
-      setExpiringPremium('');
     }
   };
 
@@ -761,18 +563,6 @@ const App = () => {
 
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-900 text-center flex-grow">Submission Builder</h1>
-          <div className="flex items-center ml-4">
-            <input
-              type="checkbox"
-              id="randomizeToggle"
-              className="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
-              checked={isRandomizeEnabled}
-              onChange={handleRandomizeToggle}
-            />
-            <label htmlFor="randomizeToggle" className="ml-2 text-sm font-medium text-blue-700">
-              Randomize Fields
-            </label>
-          </div>
         </div>
         <p className="text-center text-gray-600 mb-8">
           Fill in the details below to generate a formatted email submission for underwriters.
