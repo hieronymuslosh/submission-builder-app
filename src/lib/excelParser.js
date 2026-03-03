@@ -55,6 +55,14 @@ const getValueNearLabel = (ws, label, { right = 10, down = 3 } = {}) => {
   return '';
 };
 
+const getFirstValueNearLabel = (ws, labels, opts) => {
+  for (const l of labels) {
+    const v = getValueNearLabel(ws, l, opts);
+    if (v) return v;
+  }
+  return '';
+};
+
 export const detectTemplate = (wb) => {
   const ws = wb?.Sheets?.['App Form'];
   if (!ws) return null;
@@ -116,6 +124,42 @@ export const extractFieldsFromTemplate = (wb) => {
   fields.interest = getValueNearLabel(app, 'Interest', { right: 10, down: 3 });
   fields.businessType = getValueNearLabel(app, 'Business Type', { right: 10, down: 3 });
   fields.estimatedSalesRaw = getValueNearLabel(app, 'Estimated Sales per annum', { right: 10, down: 3 });
+
+  // Deductibles + limits (template-based)
+  // NOTE: dummy.xlsx may not include these yet; values will be blank if labels are absent.
+  fields.deductibleAOPStockRaw = getFirstValueNearLabel(app, [
+    'AOP (Stock) Deductible',
+    'AOP (Stock) deductible',
+    'AOP Deductible',
+    'AOP (Stock)',
+  ]);
+  fields.deductibleCATStockRaw = getFirstValueNearLabel(app, [
+    'CAT (EQ/Flood/Wind) Deductible',
+    'CAT Deductible',
+    'CAT (Earthquake, Flood and Windstorm) Deductible',
+    'CAT (EQ/Flood/Wind)',
+  ]);
+  fields.deductibleTransitRaw = getFirstValueNearLabel(app, [
+    'Transit Deductible',
+    'Deductible (Transit)',
+    'Transit',
+  ]);
+
+  fields.limitAOPStockRaw = getFirstValueNearLabel(app, [
+    'AOP (Stock) Limit',
+    'AOP Limit',
+    'Limit AOP (Stock)',
+  ]);
+  fields.limitCATStockRaw = getFirstValueNearLabel(app, [
+    'CAT (EQ/Flood/Wind) Limit',
+    'CAT Limit',
+    'Limit CAT (EQ/Flood/Wind)',
+  ]);
+  fields.limitTransitRaw = getFirstValueNearLabel(app, [
+    'Transit Limit',
+    'Limit (Transit)',
+    'Limit Transit',
+  ]);
 
   // Transit (App Form)
   // In this template it appears as "Maximum value per sending:" (merged value cell)

@@ -106,6 +106,65 @@ const App = () => {
     setLossHistory(newLossHistory);
   };
 
+  const clearFormFields = () => {
+    // Clear *form* state, but keep the uploaded Excel preview.
+    setInceptionDate('');
+    setIsDateTBA(false);
+    setBusinessType('');
+    setBusinessStatus('');
+    setInsuredName('');
+    setInsuredWebsite('');
+    setInsuredAddress('');
+    setInsuredNarrative('');
+    setInterest('');
+
+    setBovStock('');
+    setBovStockOther('');
+    setBovIncomingTransit('');
+    setBovIncomingTransitOther('');
+    setBovOutgoingTransit('');
+    setBovOutgoingTransitOther('');
+
+    setExpiringPremium('');
+
+    setMaxTIV('');
+    setAverageTIV('');
+    setMaxAnyOneLocation('');
+    setDeductibleAOPStock('');
+    setDeductibleCATStock('');
+    setLimitAOPStock('');
+    setLimitCATStock('');
+
+    setMaxConveyance('');
+    setAverageConveyance('');
+    setEstimatedSales('');
+    setIsEstimatedSalesUnknown(false);
+    setDeductibleTransit('');
+    setLimitTransit('');
+
+    setIncomingTransitVolumeTotal('');
+    setOutgoingTransitVolumeTotal('');
+
+    setIncomingDomesticPct('');
+    setIncomingInternationalPct('');
+    setIncomingPrimaryPct('');
+    setIncomingContingentPct('');
+    setOutgoingDomesticPct('');
+    setOutgoingInternationalPct('');
+    setOutgoingPrimaryPct('');
+    setOutgoingContingentPct('');
+
+    setLossHistory(Array(5).fill(''));
+    setTargetPremium('');
+    setBrokerage('');
+
+    setGeneratedEmailBody('');
+    setGeneratedEmailSubject('');
+    setCopySuccess('');
+
+    setAutofillSummary(null);
+  };
+
   // Function to generate the email content based on current state
   const generateEmail = () => {
     const { subject, bodyHtml } = buildEmail({
@@ -264,6 +323,9 @@ const App = () => {
       setExcelRawText(rawText || '');
       setExcelWorkbook(workbook || null);
       setExcelMeta(workbookMeta || null);
+
+      // Auto-autofill after successful parse
+      if (workbook) runAutofill('auto', workbook);
     } catch (err) {
       console.error('Excel parse failed:', err);
       setExcelError(err?.message || 'Failed to parse Excel file');
@@ -275,10 +337,11 @@ const App = () => {
     }
   };
 
-  const attemptAutofillFromRawText = () => {
-    if (!excelWorkbook) return;
+  const runAutofill = (mode = 'manual', workbookOverride = null) => {
+    const wb = workbookOverride || excelWorkbook;
+    if (!wb) return;
 
-    const { template, fields } = extractFieldsFromTemplate(excelWorkbook);
+    const { template, fields } = extractFieldsFromTemplate(wb);
     if (!template) {
       setExcelError('Unrecognised Excel template (v1 expects App Form + standard labels).');
       return;
@@ -337,15 +400,32 @@ const App = () => {
       }
     }
 
+    const cleanMoney = (v) => String(v || '').replace(/[^0-9.]/g, '');
+
+    // Deductibles + limits (App Form)
+    const cleanedDedAop = cleanMoney(fields.deductibleAOPStockRaw);
+    if (cleanedDedAop) setDeductibleAOPStock(cleanedDedAop);
+
+    const cleanedDedCat = cleanMoney(fields.deductibleCATStockRaw);
+    if (cleanedDedCat) setDeductibleCATStock(cleanedDedCat);
+
+    const cleanedDedTransit = cleanMoney(fields.deductibleTransitRaw);
+    if (cleanedDedTransit) setDeductibleTransit(cleanedDedTransit);
+
+    const cleanedLimAop = cleanMoney(fields.limitAOPStockRaw);
+    if (cleanedLimAop) setLimitAOPStock(cleanedLimAop);
+
+    const cleanedLimCat = cleanMoney(fields.limitCATStockRaw);
+    if (cleanedLimCat) setLimitCATStock(cleanedLimCat);
+
     // Transit (App Form)
-    // Max conveyance: wire to Transit limit; also keep max conveyance aligned
-    let cleanedTransitLimit = '';
-    if (fields.maxValueAnyOneConveyanceRaw) {
-      cleanedTransitLimit = String(fields.maxValueAnyOneConveyanceRaw).replace(/[^0-9.]/g, '');
-      if (cleanedTransitLimit) {
-        setLimitTransit(cleanedTransitLimit);
-        setMaxConveyance(cleanedTransitLimit);
-      }
+    // Transit limit: prefer explicit Transit Limit; otherwise fall back to max value per sending.
+    let cleanedTransitLimit = cleanMoney(fields.limitTransitRaw);
+    if (!cleanedTransitLimit) cleanedTransitLimit = cleanMoney(fields.maxValueAnyOneConveyanceRaw);
+
+    if (cleanedTransitLimit) {
+      setLimitTransit(cleanedTransitLimit);
+      setMaxConveyance(cleanedTransitLimit);
     }
 
     // Average conveyance
@@ -418,12 +498,21 @@ const App = () => {
 
     // Store summary (show blanks if missing)
     setAutofillSummary({
+      ranAt: new Date().toISOString(),
+      mode,
       insuredName: fields.insuredName || '',
       inceptionDate: rawDate || '',
       estimatedSales: cleanedSales || '',
       maxTIV: cleanedMaxTiv,
       averageTIV: cleanedAvgTiv,
       maxAnyOneLocation: cleanedMaxAny,
+
+      deductibleAOPStock: cleanedDedAop,
+      deductibleCATStock: cleanedDedCat,
+      deductibleTransit: cleanedDedTransit,
+      limitAOPStock: cleanedLimAop,
+      limitCATStock: cleanedLimCat,
+
       transitLimit: cleanedTransitLimit,
       averageConveyance: cleanedAverageConveyance,
       incomingTransitVolumeTotal: cleanedIncomingTransit,
@@ -436,6 +525,8 @@ const App = () => {
       outgoingInternationalPct: outgoingInternational,
     });
   };
+
+  const attemptAutofillFromRawText = () => runAutofill('manual');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4 sm:p-6 lg:p-8 font-inter text-gray-800">
@@ -502,6 +593,11 @@ const App = () => {
                   <div className="text-sm font-semibold text-gray-800 mb-2">Autofill results</div>
                   <ul className="text-sm text-gray-700 space-y-1">
                     <li>
+                      <span className="font-medium">Last run:</span>{' '}
+                      {autofillSummary.ranAt ? new Date(autofillSummary.ranAt).toLocaleString() : '(unknown)'}
+                      {autofillSummary.mode ? ` (${autofillSummary.mode})` : ''}
+                    </li>
+                    <li>
                       <span className="font-medium">Insured name:</span> {autofillSummary.insuredName || '(blank)'}
                     </li>
                     <li>
@@ -518,6 +614,21 @@ const App = () => {
                     </li>
                     <li>
                       <span className="font-medium">Max any one location:</span> {autofillSummary.maxAnyOneLocation || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Deductible AOP (stock):</span> {autofillSummary.deductibleAOPStock || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Deductible CAT (stock):</span> {autofillSummary.deductibleCATStock || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Deductible transit:</span> {autofillSummary.deductibleTransit || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Limit AOP (stock):</span> {autofillSummary.limitAOPStock || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Limit CAT (stock):</span> {autofillSummary.limitCATStock || '(blank)'}
                     </li>
                     <li>
                       <span className="font-medium">Transit limit:</span> {autofillSummary.transitLimit || '(blank)'}
@@ -1257,13 +1368,23 @@ const App = () => {
           </div>
         </div>
 
-        {/* Generate Email Button */}
-        <button
-          onClick={generateEmail}
-          className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-4 rounded-md shadow-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
-        >
-          Generate Email Submission
-        </button>
+        {/* Generate + Clear */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            onClick={generateEmail}
+            className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-4 rounded-md shadow-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
+          >
+            Generate Email Submission
+          </button>
+
+          <button
+            type="button"
+            onClick={clearFormFields}
+            className="w-full bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-3 px-4 rounded-md shadow transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-400"
+          >
+            Clear form
+          </button>
+        </div>
 
         {/* Generated Email Output */}
         {generatedEmailBody && (
