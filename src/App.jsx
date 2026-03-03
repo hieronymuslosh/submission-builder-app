@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 
 import { formatNumberWithCommas } from './lib/formatters.js';
 import { generateEmail as buildEmail } from './lib/emailGenerator.js';
+import { parseExcelToSubmission } from './lib/excelParser.js';
 
 // Main App component for the Marine Cargo Email Submission Generator
 const App = () => {
@@ -72,6 +73,13 @@ const App = () => {
 
   // It’s referenced in fetchInsuredAddress(), so define it (even if we don’t currently render a button)
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
+
+  // Excel upload / parse (v1)
+  const [excelFile, setExcelFile] = useState(null);
+  const [excelRawText, setExcelRawText] = useState('');
+  const [excelMeta, setExcelMeta] = useState(null);
+  const [excelError, setExcelError] = useState('');
+  const [isParsingExcel, setIsParsingExcel] = useState(false);
 
   // Ref for the div containing the generated email body
   const emailBodyDivRef = useRef(null);
@@ -441,9 +449,136 @@ const App = () => {
     setIsFetchingAddress(false);
   };
 
+  const handleExcelFile = async (file) => {
+    if (!file) return;
+    setExcelError('');
+    setIsParsingExcel(true);
+    setExcelFile(file);
+
+    try {
+      const { rawText, workbookMeta } = await parseExcelToSubmission(file);
+      setExcelRawText(rawText || '');
+      setExcelMeta(workbookMeta || null);
+    } catch (err) {
+      console.error('Excel parse failed:', err);
+      setExcelError(err?.message || 'Failed to parse Excel file');
+      setExcelRawText('');
+      setExcelMeta(null);
+    } finally {
+      setIsParsingExcel(false);
+    }
+  };
+
+  const attemptAutofillFromRawText = () => {
+    if (!excelRawText) return;
+
+    const text = excelRawText.replace(/\r/g, '');
+
+    const pick = (re) => {
+      const m = text.match(re);
+      return m?.[1]?.trim() || '';
+    };
+
+    // Extremely basic v1 heuristics. User can always overwrite manually.
+    const name = pick(/(?:^|\n)\s*(?:Insured\s*Name|Name\s*of\s*Insured)\s*[:\t]\s*(.+)\s*$/im);
+    if (name) setInsuredName(name);
+
+    const website = pick(/(?:^|\n)\s*(?:Insured\s*Website|Website|Web\s*Site|URL)\s*[:\t]\s*(https?:\/\/\S+|www\.[^\s\t]+)\s*$/im);
+    if (website) setInsuredWebsite(website);
+
+    const address = pick(/(?:^|\n)\s*(?:Insured\s*Address|Address)\s*[:\t]\s*(.+)\s*$/im);
+    if (address) setInsuredAddress(address);
+
+    const status = pick(/(?:^|\n)\s*(?:Business\s*Status|Status|New\s*\/\s*Renewal)\s*[:\t]\s*(New|Renewal)\b\s*$/im);
+    if (status) setBusinessStatus(status);
+
+    const isoDate = (() => {
+      const directIso = pick(/(?:^|\n)\s*(?:Inception\s*Date|Effective\s*Date|Policy\s*Inception)\s*[:\t]\s*(\d{4}-\d{2}-\d{2})\s*$/im);
+      if (directIso) return directIso;
+
+      const m = text.match(/(?:^|\n)\s*(?:Inception\s*Date|Effective\s*Date|Policy\s*Inception)\s*[:\t]\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\s*$/im);
+      if (!m) return '';
+
+      const dd = m[1].padStart(2, '0');
+      const mm = m[2].padStart(2, '0');
+      const yyyy = (m[3].length === 2 ? `20${m[3]}` : m[3]);
+      return `${yyyy}-${mm}-${dd}`;
+    })();
+
+    if (isoDate) {
+      setInceptionDate(isoDate);
+      setIsDateTBA(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4 sm:p-6 lg:p-8 font-inter text-gray-800">
       <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-xl p-6 sm:p-8">
+        {/* Excel upload (v1) */}
+        <div
+          className="mb-6 rounded-lg border-2 border-dashed border-blue-200 bg-blue-50/40 p-4"
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const file = e.dataTransfer?.files?.[0];
+            handleExcelFile(file);
+          }}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="font-semibold text-blue-900">Drop SOV/App Form (.xlsx) here</div>
+              <div className="text-sm text-blue-800/80">or pick a file — we’ll parse it in-browser (no upload).</div>
+            </div>
+
+            <label className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium cursor-pointer hover:bg-blue-700 transition">
+              <input
+                type="file"
+                className="hidden"
+                accept=".xlsx,.xls"
+                onChange={(e) => handleExcelFile(e.target.files?.[0])}
+              />
+              Choose Excel
+            </label>
+          </div>
+
+          {isParsingExcel && <div className="mt-3 text-sm text-gray-700">Parsing…</div>}
+          {excelError && <div className="mt-3 text-sm text-red-700">{excelError}</div>}
+
+          {excelMeta && (
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <div className="text-sm text-gray-700">
+                <span className="font-medium">File:</span> {excelMeta.fileName}
+              </div>
+              <div className="text-sm text-gray-700">
+                <span className="font-medium">Sheets:</span> {excelMeta.sheetNames?.join(', ') || '—'}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="px-3 py-2 rounded-md bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+                  onClick={attemptAutofillFromRawText}
+                  disabled={!excelRawText}
+                >
+                  Attempt autofill
+                </button>
+                <div className="text-xs text-gray-600 self-center">
+                  v1: insured name/website/address/inception date/status only (best-effort)
+                </div>
+              </div>
+
+              <div className="rounded-md bg-white border border-gray-200 p-3">
+                <div className="text-sm font-semibold text-gray-800 mb-2">Raw text preview</div>
+                <pre className="text-xs text-gray-700 max-h-56 overflow-auto whitespace-pre-wrap">{excelRawText}</pre>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-900 text-center flex-grow">Submission Builder</h1>
           <div className="flex items-center ml-4">
