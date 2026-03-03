@@ -553,6 +553,36 @@ const App = () => {
       if (cleanedAverageConveyance) setAverageConveyance(cleanedAverageConveyance);
     }
 
+    // Transit volumes + splits
+    let cleanedIncomingTransit = '';
+    if (fields.incomingTransitVolumeTotalRaw) {
+      cleanedIncomingTransit = String(fields.incomingTransitVolumeTotalRaw).replace(/[^0-9.]/g, '');
+      if (cleanedIncomingTransit) setIncomingTransitVolumeTotal(cleanedIncomingTransit);
+    }
+
+    let cleanedOutgoingTransit = '';
+    if (fields.outgoingTransitVolumeTotalRaw) {
+      cleanedOutgoingTransit = String(fields.outgoingTransitVolumeTotalRaw).replace(/[^0-9.]/g, '');
+      if (cleanedOutgoingTransit) setOutgoingTransitVolumeTotal(cleanedOutgoingTransit);
+    }
+
+    const cleanPct = (v) => {
+      const t = String(v || '').replace(/[^0-9.]/g, '');
+      if (!t) return '';
+      const n = Math.max(0, Math.min(100, parseFloat(t)));
+      return Number.isFinite(n) ? String(n) : '';
+    };
+
+    const incomingPrimary = cleanPct(fields.incomingPrimaryPctRaw);
+    const incomingContingent = cleanPct(fields.incomingContingentPctRaw);
+    const outgoingPrimary = cleanPct(fields.outgoingPrimaryPctRaw) || incomingPrimary;
+    const outgoingContingent = cleanPct(fields.outgoingContingentPctRaw) || incomingContingent;
+
+    if (incomingPrimary) setIncomingPrimaryPct(incomingPrimary);
+    if (incomingContingent) setIncomingContingentPct(incomingContingent);
+    if (outgoingPrimary) setOutgoingPrimaryPct(outgoingPrimary);
+    if (outgoingContingent) setOutgoingContingentPct(outgoingContingent);
+
     // From SOV: total stock + max any one location
     let cleanedMaxTiv = '';
     let cleanedAvgTiv = '';
@@ -583,6 +613,10 @@ const App = () => {
       maxAnyOneLocation: cleanedMaxAny,
       transitLimit: cleanedTransitLimit,
       averageConveyance: cleanedAverageConveyance,
+      incomingTransitVolumeTotal: cleanedIncomingTransit,
+      outgoingTransitVolumeTotal: cleanedOutgoingTransit,
+      primaryPct: outgoingPrimary || incomingPrimary,
+      contingentPct: outgoingContingent || incomingContingent,
     });
   };
 
@@ -673,6 +707,18 @@ const App = () => {
                     </li>
                     <li>
                       <span className="font-medium">Average conveyance:</span> {autofillSummary.averageConveyance || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Incoming transit total:</span> {autofillSummary.incomingTransitVolumeTotal || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Outgoing transit total:</span> {autofillSummary.outgoingTransitVolumeTotal || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Primary %:</span> {autofillSummary.primaryPct || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Contingent %:</span> {autofillSummary.contingentPct || '(blank)'}
                     </li>
                   </ul>
                 </div>

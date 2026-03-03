@@ -122,6 +122,47 @@ export const extractFieldsFromTemplate = (wb) => {
   fields.maxValueAnyOneConveyanceRaw = getValueNearLabel(app, 'Maximum value per sending:', { right: 10, down: 3 });
   fields.averageValueAnyOneConveyanceRaw = getValueNearLabel(app, 'Average value per sending:', { right: 10, down: 3 });
 
+  // Transit volumes + splits
+  fields.incomingTransitVolumeTotalRaw = getValueNearLabel(app, 'Total annual values received:', { right: 12, down: 3 });
+  fields.outgoingTransitVolumeTotalRaw = getValueNearLabel(app, 'Total annual values dispatched:', { right: 12, down: 3 });
+
+  // This label appears twice (incoming + outgoing). We capture both by reading the cells explicitly.
+  const insuredRespPositions = [];
+  const supplierRespPositions = [];
+  const customerRespPositions = [];
+  {
+    const merges = app['!merges'] || [];
+    const maxR = 140;
+    const maxC = 30;
+    const getMerged = (r, c) => getMergedDisplayValue(app, r, c);
+    for (let r = 0; r < maxR; r++) {
+      for (let c = 0; c < maxC; c++) {
+        const t = getMerged(r, c).toLowerCase();
+        if (!t) continue;
+        if (t === '% insured responsible for insurance') insuredRespPositions.push({ r, c });
+        if (t === '% supplier responsible for insurance') supplierRespPositions.push({ r, c });
+        if (t === '% customer responsible for insurance') customerRespPositions.push({ r, c });
+      }
+    }
+
+    const readRight = (pos) => {
+      // in dummy.xlsx value is a few cols to the right (e.g. E -> H)
+      for (let cc = pos.c + 1; cc <= pos.c + 10; cc++) {
+        const v = getMerged(pos.r, cc);
+        if (v) return v;
+      }
+      return '';
+    };
+
+    // Incoming (first occurrence)
+    fields.incomingPrimaryPctRaw = insuredRespPositions[0] ? readRight(insuredRespPositions[0]) : '';
+    fields.incomingContingentPctRaw = supplierRespPositions[0] ? readRight(supplierRespPositions[0]) : '';
+
+    // Outgoing (second occurrence)
+    fields.outgoingPrimaryPctRaw = insuredRespPositions[1] ? readRight(insuredRespPositions[1]) : '';
+    fields.outgoingContingentPctRaw = customerRespPositions[0] ? readRight(customerRespPositions[0]) : '';
+  }
+
   // SOV mappings (v1)
   const sov = wb.Sheets['SOV'];
   if (sov) {
