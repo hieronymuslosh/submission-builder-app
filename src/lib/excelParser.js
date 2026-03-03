@@ -122,8 +122,38 @@ export const extractFieldsFromTemplate = (wb) => {
   fields.insuredWebsite = getValueNearLabel(app, 'Website', { right: 10, down: 3 });
   fields.inceptionDateRaw = getValueNearLabel(app, 'Inception Date (dd/mm/yy)', { right: 10, down: 3 });
   fields.interest = getValueNearLabel(app, 'Interest', { right: 10, down: 3 });
-  fields.businessType = getValueNearLabel(app, 'Business Type', { right: 10, down: 3 });
+  fields.businessTypeRaw = getValueNearLabel(app, 'Business Type', { right: 10, down: 3 });
   fields.estimatedSalesRaw = getValueNearLabel(app, 'Estimated Sales per annum', { right: 10, down: 3 });
+
+  // Basis of valuation (BOV)
+  // Incoming/outgoing transit sections both use the same label in this template.
+  // We rely on position: incoming label is earlier than outgoing.
+  {
+    const bovPositions = [];
+    const maxR = 200;
+    const maxC = 12;
+    const getMerged = (r, c) => getMergedDisplayValue(app, r, c);
+    for (let r = 0; r < maxR; r++) {
+      for (let c = 0; c < maxC; c++) {
+        const t = getMerged(r, c).toLowerCase();
+        if (t === 'basis of valuation:') bovPositions.push({ r, c });
+      }
+    }
+
+    const readRight = (pos) => {
+      for (let cc = pos.c + 1; cc <= pos.c + 10; cc++) {
+        const v = getMerged(pos.r, cc);
+        if (v) return v;
+      }
+      return '';
+    };
+
+    fields.incomingTransitBovRaw = bovPositions[0] ? readRight(bovPositions[0]) : '';
+    fields.outgoingTransitBovRaw = bovPositions[1] ? readRight(bovPositions[1]) : '';
+  }
+
+  // Stock BOV: prefer SOV label; fallback to App Form if we ever add it there
+  fields.stockBovRaw = '';
 
   // Deductibles + limits (template-based)
   // NOTE: dummy.xlsx may not include these yet; values will be blank if labels are absent.
@@ -238,6 +268,13 @@ export const extractFieldsFromTemplate = (wb) => {
       // In the provided template, MAX stock is col 6 and AVG is col 7.
       fields.sovTotalMaxStock = norm(totalRow?.[6]);
       fields.sovTotalAvgStock = norm(totalRow?.[7]);
+    }
+
+    // Stock basis of valuation label on SOV
+    const bovRow = sovRows.find((r) => (r || []).some((c) => norm(c).toLowerCase() === 'stock basis of valuation'));
+    if (bovRow) {
+      const idx = bovRow.findIndex((c) => norm(c).toLowerCase() === 'stock basis of valuation');
+      if (idx >= 0) fields.stockBovRaw = norm(bovRow?.[idx + 1]);
     }
 
     // Identify SOV header structure (2-row header in dummy.xlsx)

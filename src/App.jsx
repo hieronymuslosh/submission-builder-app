@@ -352,7 +352,43 @@ const App = () => {
     if (fields.insuredWebsite) setInsuredWebsite(fields.insuredWebsite);
     if (fields.insuredAddress) setInsuredAddress(fields.insuredAddress);
     if (fields.interest) setInterest(fields.interest);
-    if (fields.businessType) setBusinessType(fields.businessType);
+
+    // Business type normalisation to match dropdown exact values
+    const businessTypeRaw = String(fields.businessTypeRaw || '').toLowerCase();
+    let businessTypeNorm = '';
+    if (businessTypeRaw.includes('throughput')) {
+      businessTypeNorm = 'Stock Throughput';
+    } else if (businessTypeRaw.includes('stock') && businessTypeRaw.includes('transit')) {
+      businessTypeNorm = 'Stock Throughput';
+    } else if (businessTypeRaw.includes('stock')) {
+      businessTypeNorm = 'Stock Only';
+    } else if (businessTypeRaw.includes('transit')) {
+      businessTypeNorm = 'Transit Only';
+    }
+    if (businessTypeNorm) setBusinessType(businessTypeNorm);
+
+    // Basis of valuation mapping
+    const mapBov = (raw) => {
+      const t = String(raw || '').trim();
+      const tl = t.toLowerCase();
+      if (!t) return { value: '', other: '' };
+      if (tl.includes('replacement')) return { value: 'Replacement Cost', other: '' };
+      if (tl.includes('selling')) return { value: 'Selling price', other: '' };
+      if (tl.includes('cif') && tl.includes('10')) return { value: 'CIF + 10%', other: '' };
+      return { value: 'Other', other: t };
+    };
+
+    const stockBov = mapBov(fields.stockBovRaw);
+    if (stockBov.value) setBovStock(stockBov.value);
+    if (stockBov.value === 'Other') setBovStockOther(stockBov.other);
+
+    const inBov = mapBov(fields.incomingTransitBovRaw);
+    if (inBov.value) setBovIncomingTransit(inBov.value);
+    if (inBov.value === 'Other') setBovIncomingTransitOther(inBov.other);
+
+    const outBov = mapBov(fields.outgoingTransitBovRaw);
+    if (outBov.value) setBovOutgoingTransit(outBov.value);
+    if (outBov.value === 'Other') setBovOutgoingTransitOther(outBov.other);
 
     // Inception date: supports dd/mm/yy or dd/mm/yyyy or yyyy-mm-dd or long-form dates from Excel
     const rawDate = fields.inceptionDateRaw;
@@ -543,6 +579,11 @@ const App = () => {
       incomingInternationalPct: incomingInternational,
       outgoingDomesticPct: outgoingDomestic,
       outgoingInternationalPct: outgoingInternational,
+
+      businessType: businessTypeNorm,
+      stockBov: stockBov.value === 'Other' ? stockBov.other : stockBov.value,
+      incomingTransitBov: inBov.value === 'Other' ? inBov.other : inBov.value,
+      outgoingTransitBov: outBov.value === 'Other' ? outBov.other : outBov.value,
     });
   };
 
@@ -619,6 +660,18 @@ const App = () => {
                     </li>
                     <li>
                       <span className="font-medium">Insured name:</span> {autofillSummary.insuredName || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Business type:</span> {autofillSummary.businessType || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Stock BOV:</span> {autofillSummary.stockBov || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Incoming transit BOV:</span> {autofillSummary.incomingTransitBov || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Outgoing transit BOV:</span> {autofillSummary.outgoingTransitBov || '(blank)'}
                     </li>
                     <li>
                       <span className="font-medium">Inception date:</span> {autofillSummary.inceptionDate || '(blank)'}
