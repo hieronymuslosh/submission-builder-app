@@ -240,19 +240,89 @@ export const extractFieldsFromTemplate = (wb) => {
       fields.sovTotalAvgStock = norm(totalRow?.[7]);
     }
 
-    // Max any one location = max STOCK maximum (col 6) among numbered rows.
-    let maxAnyOneLoc = NaN;
-    for (const r of sovRows) {
-      const loc = norm(r?.[0]);
-      if (!loc) continue;
-      if (loc.toLowerCase() === 'loc #' || loc.toLowerCase() === 'total') continue;
-      const n = moneyToNumber(r?.[6]);
-      if (Number.isFinite(n) && (!Number.isFinite(maxAnyOneLoc) || n > maxAnyOneLoc)) {
-        maxAnyOneLoc = n;
+    // Identify SOV header structure (2-row header in dummy.xlsx)
+    // Row 0 contains ST + STOCK. Row 1 contains Maximum/Average under STOCK.
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(30, sovRows.length); i++) {
+      const row = sovRows[i] || [];
+      const hasLoc = norm(row?.[0]).toLowerCase() === 'loc #';
+      const hasSt = row.some((c) => norm(c).toLowerCase() === 'st');
+      const hasStock = row.some((c) => norm(c).toLowerCase() === 'stock');
+      if (hasLoc && hasSt && hasStock) {
+        headerIdx = i;
+        break;
       }
     }
+
+    const header1 = headerIdx >= 0 ? (sovRows[headerIdx] || []) : [];
+    const header2 = headerIdx >= 0 ? (sovRows[headerIdx + 1] || []) : [];
+
+    const stIdx = header1.findIndex((c) => norm(c).toLowerCase() === 'st');
+    const stockIdx = header1.findIndex((c) => norm(c).toLowerCase() === 'stock');
+
+    let stockMaxIdx = -1;
+    if (stockIdx >= 0) {
+      if (norm(header2?.[stockIdx]).toLowerCase() === 'maximum') {
+        stockMaxIdx = stockIdx;
+      } else {
+        // fallback: look near STOCK for "Maximum"
+        for (let j = stockIdx; j <= stockIdx + 3; j++) {
+          if (norm(header2?.[j]).toLowerCase() === 'maximum') {
+            stockMaxIdx = j;
+            break;
+          }
+        }
+      }
+    }
+
+    // Compute:
+    // - maxAnyOneLocationFromSov (max stock at any one location)
+    // - aopLimitStockFromSov (same rule)
+    // - catLimitStockFromSov (max state accumulation)
+    let maxAnyOneLoc = NaN;
+    const stateTotals = new Map();
+
+    const startRow = headerIdx >= 0 ? headerIdx + 2 : 1;
+    for (let i = startRow; i < sovRows.length; i++) {
+      const r = sovRows[i] || [];
+      const loc = norm(r?.[0]);
+      if (!loc) continue;
+      if (loc.toLowerCase() === 'total') continue;
+      if (loc.toLowerCase() === 'stock basis of valuation') continue;
+
+      // only treat numeric-ish loc rows as locations
+      if (!/^[0-9]+$/.test(loc)) continue;
+
+      const st = stIdx >= 0 ? norm(r?.[stIdx]) : '';
+      const n = stockMaxIdx >= 0 ? moneyToNumber(r?.[stockMaxIdx]) : NaN;
+      if (!Number.isFinite(n)) continue;
+
+      if (!Number.isFinite(maxAnyOneLoc) || n > maxAnyOneLoc) maxAnyOneLoc = n;
+
+      if (st) {
+        const prev = stateTotals.get(st) || 0;
+        stateTotals.set(st, prev + n);
+      }
+    }
+
     if (Number.isFinite(maxAnyOneLoc)) {
-      fields.maxAnyOneLocationFromSov = String(Math.round(maxAnyOneLoc));
+      const v = String(Math.round(maxAnyOneLoc));
+      fields.maxAnyOneLocationFromSov = v;
+      fields.aopLimitStockFromSov = v;
+    }
+
+    let catMax = NaN;
+    let catState = '';
+    for (const [st, total] of stateTotals.entries()) {
+      if (!Number.isFinite(catMax) || total > catMax) {
+        catMax = total;
+        catState = st;
+      }
+    }
+
+    if (Number.isFinite(catMax)) {
+      fields.catLimitStockFromSov = String(Math.round(catMax));
+      fields.catLimitStockState = catState;
     }
   }
 

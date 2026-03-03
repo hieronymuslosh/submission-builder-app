@@ -480,6 +480,9 @@ const App = () => {
     let cleanedMaxTiv = '';
     let cleanedAvgTiv = '';
     let cleanedMaxAny = '';
+    let cleanedAopLimit = '';
+    let cleanedCatLimit = '';
+    let catLimitState = '';
 
     if (fields.sovTotalMaxStock) {
       cleanedMaxTiv = String(fields.sovTotalMaxStock).replace(/[^0-9.]/g, '');
@@ -494,6 +497,20 @@ const App = () => {
     if (fields.maxAnyOneLocationFromSov) {
       cleanedMaxAny = String(fields.maxAnyOneLocationFromSov).replace(/[^0-9.]/g, '');
       if (cleanedMaxAny) setMaxAnyOneLocation(cleanedMaxAny);
+    }
+
+    if (fields.aopLimitStockFromSov) {
+      cleanedAopLimit = String(fields.aopLimitStockFromSov).replace(/[^0-9.]/g, '');
+      if (cleanedAopLimit) setLimitAOPStock(cleanedAopLimit);
+    }
+
+    if (fields.catLimitStockFromSov) {
+      cleanedCatLimit = String(fields.catLimitStockFromSov).replace(/[^0-9.]/g, '');
+      if (cleanedCatLimit) setLimitCATStock(cleanedCatLimit);
+    }
+
+    if (fields.catLimitStockState) {
+      catLimitState = String(fields.catLimitStockState);
     }
 
     // Store summary (show blanks if missing)
@@ -512,6 +529,9 @@ const App = () => {
       deductibleTransit: cleanedDedTransit,
       limitAOPStock: cleanedLimAop,
       limitCATStock: cleanedLimCat,
+      aopLimitStockFromSov: cleanedAopLimit,
+      catLimitStockFromSov: cleanedCatLimit,
+      catLimitStockState: catLimitState,
 
       transitLimit: cleanedTransitLimit,
       averageConveyance: cleanedAverageConveyance,
@@ -626,9 +646,11 @@ const App = () => {
                     </li>
                     <li>
                       <span className="font-medium">Limit AOP (stock):</span> {autofillSummary.limitAOPStock || '(blank)'}
+                      {autofillSummary.aopLimitStockFromSov ? ` (SOV: ${autofillSummary.aopLimitStockFromSov})` : ''}
                     </li>
                     <li>
                       <span className="font-medium">Limit CAT (stock):</span> {autofillSummary.limitCATStock || '(blank)'}
+                      {autofillSummary.catLimitStockFromSov ? ` (SOV: ${autofillSummary.catLimitStockFromSov}${autofillSummary.catLimitStockState ? ` in ${autofillSummary.catLimitStockState}` : ''})` : ''}
                     </li>
                     <li>
                       <span className="font-medium">Transit limit:</span> {autofillSummary.transitLimit || '(blank)'}
