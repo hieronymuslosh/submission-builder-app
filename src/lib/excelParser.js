@@ -117,6 +117,10 @@ export const extractFieldsFromTemplate = (wb) => {
   fields.businessType = getValueNearLabel(app, 'Business Type', { right: 10, down: 3 });
   fields.estimatedSalesRaw = getValueNearLabel(app, 'Estimated Sales per annum', { right: 10, down: 3 });
 
+  // Transit (App Form)
+  // In this template it appears as "Maximum value per sending:" (merged value cell)
+  fields.maxValueAnyOneConveyanceRaw = getValueNearLabel(app, 'Maximum value per sending:', { right: 10, down: 3 });
+
   // SOV mappings (v1)
   const sov = wb.Sheets['SOV'];
   if (sov) {

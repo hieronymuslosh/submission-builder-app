@@ -535,6 +535,16 @@ const App = () => {
       }
     }
 
+    // Transit limit from App Form max conveyance (v1: wire to Transit limit; also keep max conveyance aligned)
+    let cleanedTransitLimit = '';
+    if (fields.maxValueAnyOneConveyanceRaw) {
+      cleanedTransitLimit = String(fields.maxValueAnyOneConveyanceRaw).replace(/[^0-9.]/g, '');
+      if (cleanedTransitLimit) {
+        setLimitTransit(cleanedTransitLimit);
+        setMaxConveyance(cleanedTransitLimit);
+      }
+    }
+
     // From SOV: total stock + max any one location
     let cleanedMaxTiv = '';
     let cleanedAvgTiv = '';
@@ -563,6 +573,7 @@ const App = () => {
       maxTIV: cleanedMaxTiv,
       averageTIV: cleanedAvgTiv,
       maxAnyOneLocation: cleanedMaxAny,
+      transitLimit: cleanedTransitLimit,
     });
   };
 
@@ -647,6 +658,9 @@ const App = () => {
                     </li>
                     <li>
                       <span className="font-medium">Max any one location:</span> {autofillSummary.maxAnyOneLocation || '(blank)'}
+                    </li>
+                    <li>
+                      <span className="font-medium">Transit limit:</span> {autofillSummary.transitLimit || '(blank)'}
                     </li>
                   </ul>
                 </div>
