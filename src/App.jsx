@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 
 import { formatNumberWithCommas } from './lib/formatters.js';
 import { generateEmail as buildEmail } from './lib/emailGenerator.js';
-import { parseExcelToSubmission } from './lib/excelParser.js';
+import { parseExcelToSubmission, extractFieldsFromTemplate } from './lib/excelParser.js';
 
 // Main App component for the Marine Cargo Email Submission Generator
 const App = () => {
@@ -77,6 +77,7 @@ const App = () => {
   // Excel upload / parse (v1)
   const [excelFile, setExcelFile] = useState(null);
   const [excelRawText, setExcelRawText] = useState('');
+  const [excelWorkbook, setExcelWorkbook] = useState(null);
   const [excelMeta, setExcelMeta] = useState(null);
   const [excelError, setExcelError] = useState('');
   const [isParsingExcel, setIsParsingExcel] = useState(false);
@@ -456,13 +457,15 @@ const App = () => {
     setExcelFile(file);
 
     try {
-      const { rawText, workbookMeta } = await parseExcelToSubmission(file);
+      const { rawText, workbookMeta, workbook } = await parseExcelToSubmission(file);
       setExcelRawText(rawText || '');
+      setExcelWorkbook(workbook || null);
       setExcelMeta(workbookMeta || null);
     } catch (err) {
       console.error('Excel parse failed:', err);
       setExcelError(err?.message || 'Failed to parse Excel file');
       setExcelRawText('');
+      setExcelWorkbook(null);
       setExcelMeta(null);
     } finally {
       setIsParsingExcel(false);
@@ -470,44 +473,48 @@ const App = () => {
   };
 
   const attemptAutofillFromRawText = () => {
-    if (!excelRawText) return;
+    if (!excelWorkbook) return;
 
-    const text = excelRawText.replace(/\r/g, '');
+    const { template, fields } = extractFieldsFromTemplate(excelWorkbook);
+    if (!template) {
+      setExcelError('Unrecognised Excel template (v1 expects App Form + standard labels).');
+      return;
+    }
 
-    const pick = (re) => {
-      const m = text.match(re);
-      return m?.[1]?.trim() || '';
-    };
+    // Set what we can; user can always overwrite manually.
+    if (fields.insuredName) setInsuredName(fields.insuredName);
+    if (fields.insuredWebsite) setInsuredWebsite(fields.insuredWebsite);
+    if (fields.insuredAddress) setInsuredAddress(fields.insuredAddress);
+    if (fields.interest) setInterest(fields.interest);
+    if (fields.businessType) setBusinessType(fields.businessType);
 
-    // Extremely basic v1 heuristics. User can always overwrite manually.
-    const name = pick(/(?:^|\n)\s*(?:Insured\s*Name|Name\s*of\s*Insured)\s*[:\t]\s*(.+)\s*$/im);
-    if (name) setInsuredName(name);
+    // Inception date: supports dd/mm/yy or dd/mm/yyyy or yyyy-mm-dd
+    const rawDate = fields.inceptionDateRaw;
+    if (rawDate) {
+      let iso = '';
+      const mIso = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (mIso) {
+        iso = rawDate;
+      } else {
+        const m = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+        if (m) {
+          const dd = m[1].padStart(2, '0');
+          const mm = m[2].padStart(2, '0');
+          const yyyy = m[3].length === 2 ? `20${m[3]}` : m[3];
+          iso = `${yyyy}-${mm}-${dd}`;
+        }
+      }
 
-    const website = pick(/(?:^|\n)\s*(?:Insured\s*Website|Website|Web\s*Site|URL)\s*[:\t]\s*(https?:\/\/\S+|www\.[^\s\t]+)\s*$/im);
-    if (website) setInsuredWebsite(website);
+      if (iso) {
+        setInceptionDate(iso);
+        setIsDateTBA(false);
+      }
+    }
 
-    const address = pick(/(?:^|\n)\s*(?:Insured\s*Address|Address)\s*[:\t]\s*(.+)\s*$/im);
-    if (address) setInsuredAddress(address);
-
-    const status = pick(/(?:^|\n)\s*(?:Business\s*Status|Status|New\s*\/\s*Renewal)\s*[:\t]\s*(New|Renewal)\b\s*$/im);
-    if (status) setBusinessStatus(status);
-
-    const isoDate = (() => {
-      const directIso = pick(/(?:^|\n)\s*(?:Inception\s*Date|Effective\s*Date|Policy\s*Inception)\s*[:\t]\s*(\d{4}-\d{2}-\d{2})\s*$/im);
-      if (directIso) return directIso;
-
-      const m = text.match(/(?:^|\n)\s*(?:Inception\s*Date|Effective\s*Date|Policy\s*Inception)\s*[:\t]\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\s*$/im);
-      if (!m) return '';
-
-      const dd = m[1].padStart(2, '0');
-      const mm = m[2].padStart(2, '0');
-      const yyyy = (m[3].length === 2 ? `20${m[3]}` : m[3]);
-      return `${yyyy}-${mm}-${dd}`;
-    })();
-
-    if (isoDate) {
-      setInceptionDate(isoDate);
-      setIsDateTBA(false);
+    // Estimated sales (if present)
+    if (fields.estimatedSalesRaw) {
+      const cleaned = String(fields.estimatedSalesRaw).replace(/[^0-9.]/g, '');
+      if (cleaned) setEstimatedSales(cleaned);
     }
   };
 
