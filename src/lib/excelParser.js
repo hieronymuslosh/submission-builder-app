@@ -2,19 +2,68 @@ import * as XLSX from 'xlsx';
 
 const norm = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 
+const moneyToNumber = (val) => {
+  const s = norm(val).replace(/[$,]/g, '');
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : NaN;
+};
+
+const getMergedDisplayValue = (ws, r, c) => {
+  // If cell is part of a merge, Excel displays top-left's value.
+  const merges = ws?.['!merges'] || [];
+  for (const m of merges) {
+    if (r >= m.s.r && r <= m.e.r && c >= m.s.c && c <= m.e.c) {
+      const addr = XLSX.utils.encode_cell({ r: m.s.r, c: m.s.c });
+      const cell = ws[addr];
+      return norm(cell?.w ?? cell?.v ?? '');
+    }
+  }
+
+  const addr = XLSX.utils.encode_cell({ r, c });
+  const cell = ws[addr];
+  return norm(cell?.w ?? cell?.v ?? '');
+};
+
+const findLabelCell = (ws, label, { maxR = 120, maxC = 30 } = {}) => {
+  const target = label.toLowerCase();
+  for (let r = 0; r < maxR; r++) {
+    for (let c = 0; c < maxC; c++) {
+      if (getMergedDisplayValue(ws, r, c).toLowerCase() === target) {
+        return { r, c };
+      }
+    }
+  }
+  return null;
+};
+
+const getValueNearLabel = (ws, label, { right = 10, down = 3 } = {}) => {
+  const pos = findLabelCell(ws, label);
+  if (!pos) return '';
+
+  // Prefer value on same row to the right.
+  for (let cc = pos.c + 1; cc <= pos.c + right; cc++) {
+    const v = getMergedDisplayValue(ws, pos.r, cc);
+    if (v) return v;
+  }
+
+  // Fallback: below in same column.
+  for (let rr = pos.r + 1; rr <= pos.r + down; rr++) {
+    const v = getMergedDisplayValue(ws, rr, pos.c);
+    if (v) return v;
+  }
+
+  return '';
+};
+
 export const detectTemplate = (wb) => {
-  const appSheet = wb?.Sheets?.['App Form'];
-  if (!appSheet) return null;
-
-  const rows = XLSX.utils.sheet_to_json(appSheet, { header: 1, raw: false, blankrows: false });
-
-  const has = (label) => rows.some((r) => (r || []).some((c) => norm(c).toLowerCase() === label.toLowerCase()));
+  const ws = wb?.Sheets?.['App Form'];
+  if (!ws) return null;
 
   // Minimal key labels for the “standard-v1” template
   const required = ['Insured Name', 'Mailing Address', 'Inception Date (dd/mm/yy)', 'Website', 'Business Type'];
-  if (required.every(has)) return 'standard-v1';
+  const ok = required.every((l) => findLabelCell(ws, l));
 
-  return null;
+  return ok ? 'standard-v1' : null;
 };
 
 export const getValueRightOfLabel = (rows, label, { maxOffset = 3 } = {}) => {
@@ -57,56 +106,43 @@ export const extractFieldsFromTemplate = (wb) => {
 
   const fields = {};
 
-  // App Form mappings
+  // App Form mappings (merged-cell aware, bounded search)
   const app = wb.Sheets['App Form'];
-  const appRows = XLSX.utils.sheet_to_json(app, { header: 1, raw: false, blankrows: false });
 
-  const labels = [
-    'Insured Name',
-    'Mailing Address',
-    'Country of Origin',
-    'Inception Date (dd/mm/yy)',
-    'Interest',
-    'Business Type',
-    'Business Decription',
-    'Website',
-    'Estimated Sales per annum',
-  ];
-  const labelSet = new Set(labels.map((l) => l.toLowerCase()));
+  fields.insuredName = getValueNearLabel(app, 'Insured Name', { right: 10, down: 3 });
+  fields.insuredAddress = getValueNearLabel(app, 'Mailing Address', { right: 10, down: 3 });
+  fields.insuredWebsite = getValueNearLabel(app, 'Website', { right: 10, down: 3 });
+  fields.inceptionDateRaw = getValueNearLabel(app, 'Inception Date (dd/mm/yy)', { right: 10, down: 3 });
+  fields.interest = getValueNearLabel(app, 'Interest', { right: 10, down: 3 });
+  fields.businessType = getValueNearLabel(app, 'Business Type', { right: 10, down: 3 });
+  fields.estimatedSalesRaw = getValueNearLabel(app, 'Estimated Sales per annum', { right: 10, down: 3 });
 
-  const pickValue = (label) => {
-    const right = getValueRightOfLabel(appRows, label, { maxOffset: 2 });
-    if (right && !labelSet.has(right.toLowerCase())) return right;
-
-    const below = getValueBelowLabel(appRows, label, { maxDepth: 2 });
-    if (below && !labelSet.has(below.toLowerCase())) return below;
-
-    return '';
-  };
-
-  fields.insuredName = pickValue('Insured Name');
-  fields.insuredAddress = pickValue('Mailing Address');
-  fields.insuredWebsite = pickValue('Website');
-  fields.inceptionDateRaw = pickValue('Inception Date (dd/mm/yy)');
-  fields.interest = pickValue('Interest');
-  fields.businessType = pickValue('Business Type');
-  fields.estimatedSalesRaw = pickValue('Estimated Sales per annum');
-
-  // SOV mappings (best-effort)
+  // SOV mappings (v1)
   const sov = wb.Sheets['SOV'];
   if (sov) {
     const sovRows = XLSX.utils.sheet_to_json(sov, { header: 1, raw: false, blankrows: false });
 
-    // Try to locate TOTAL row, then pick last two columns in that row as max/avg stock.
+    // Total stock (TOTAL row)
     const totalRow = sovRows.find((r) => norm(r?.[0]).toLowerCase() === 'total');
     if (totalRow) {
-      const cleaned = totalRow.map((v) => norm(v));
-      // heuristic: last two numeric-ish entries
-      const nums = cleaned.filter((v) => v && /[0-9]/.test(v));
-      if (nums.length >= 2) {
-        fields.sovTotalMaxStock = nums[nums.length - 2];
-        fields.sovTotalAvgStock = nums[nums.length - 1];
+      // In the provided template, MAX stock is col 6 and AVG is col 7.
+      fields.sovTotalMaxStock = norm(totalRow?.[6]);
+      fields.sovTotalAvgStock = norm(totalRow?.[7]);
+    }
+
+    // Max any one location = max STOCK maximum (col 6) among numbered rows.
+    let maxAnyOneLoc = NaN;
+    for (const r of sovRows) {
+      const loc = norm(r?.[0]);
+      if (!loc) continue;
+      if (loc.toLowerCase() === 'loc #' || loc.toLowerCase() === 'total') continue;
+      const n = moneyToNumber(r?.[6]);
+      if (Number.isFinite(n) && (!Number.isFinite(maxAnyOneLoc) || n > maxAnyOneLoc)) {
+        maxAnyOneLoc = n;
       }
+    }
+    if (Number.isFinite(maxAnyOneLoc)) {
+      fields.maxAnyOneLocationFromSov = String(Math.round(maxAnyOneLoc));
     }
   }
 

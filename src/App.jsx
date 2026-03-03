@@ -488,10 +488,11 @@ const App = () => {
     if (fields.interest) setInterest(fields.interest);
     if (fields.businessType) setBusinessType(fields.businessType);
 
-    // Inception date: supports dd/mm/yy or dd/mm/yyyy or yyyy-mm-dd
+    // Inception date: supports dd/mm/yy or dd/mm/yyyy or yyyy-mm-dd or long-form dates from Excel
     const rawDate = fields.inceptionDateRaw;
     if (rawDate) {
       let iso = '';
+
       const mIso = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
       if (mIso) {
         iso = rawDate;
@@ -505,6 +506,18 @@ const App = () => {
         }
       }
 
+      // Fallback: try Date.parse on strings like "Sunday, May 03, 2026"
+      if (!iso) {
+        const t = Date.parse(rawDate);
+        if (!Number.isNaN(t)) {
+          const d = new Date(t);
+          const yyyy = String(d.getFullYear());
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          iso = `${yyyy}-${mm}-${dd}`;
+        }
+      }
+
       if (iso) {
         setInceptionDate(iso);
         setIsDateTBA(false);
@@ -514,7 +527,16 @@ const App = () => {
     // Estimated sales (if present)
     if (fields.estimatedSalesRaw) {
       const cleaned = String(fields.estimatedSalesRaw).replace(/[^0-9.]/g, '');
-      if (cleaned) setEstimatedSales(cleaned);
+      if (cleaned) {
+        setEstimatedSales(cleaned);
+        setIsEstimatedSalesUnknown(false);
+      }
+    }
+
+    // From SOV: max any one location
+    if (fields.maxAnyOneLocationFromSov) {
+      const cleaned = String(fields.maxAnyOneLocationFromSov).replace(/[^0-9.]/g, '');
+      if (cleaned) setMaxAnyOneLocation(cleaned);
     }
   };
 
