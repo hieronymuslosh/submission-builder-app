@@ -120,6 +120,7 @@ export const extractFieldsFromTemplate = (wb) => {
   // Transit (App Form)
   // In this template it appears as "Maximum value per sending:" (merged value cell)
   fields.maxValueAnyOneConveyanceRaw = getValueNearLabel(app, 'Maximum value per sending:', { right: 10, down: 3 });
+  fields.averageValueAnyOneConveyanceRaw = getValueNearLabel(app, 'Average value per sending:', { right: 10, down: 3 });
 
   // SOV mappings (v1)
   const sov = wb.Sheets['SOV'];
