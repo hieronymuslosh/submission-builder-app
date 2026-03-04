@@ -9,7 +9,8 @@
     "dev": "concurrently -n web,server -c cyan,magenta \"npm:dev:web\" \"npm:dev:server\"",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server/prod.js"
   },
   "dependencies": {
     "express": "^5.2.1",
