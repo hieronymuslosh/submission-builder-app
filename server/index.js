@@ -271,6 +271,6 @@ app.post('/api/narrative', async (req, res) => {
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-app.listen(PORT, () => {
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`Narrative server listening on http://127.0.0.1:${PORT}`);
 });
