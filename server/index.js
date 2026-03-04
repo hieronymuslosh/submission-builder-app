@@ -12,6 +12,7 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 const BodySchema = z.object({
   website: z.string().min(1),
   insuredName: z.string().optional(),
+  debug: z.boolean().optional(),
 });
 
 const isPrivateIp = (ip) => {
@@ -77,6 +78,35 @@ const normaliseUrl = async (input) => {
   return url;
 };
 
+const extractMetaDescription = (html) => {
+  const m = html.match(/<meta[^>]+name=["']description["'][^>]*>/i);
+  if (!m) return '';
+  const tag = m[0];
+  const content = tag.match(/content=["']([^"']+)["']/i)?.[1] || '';
+  return String(content).replace(/\s+/g, ' ').trim();
+};
+
+const extractAboutLink = (html, baseUrl) => {
+  // Very simple: find first anchor with "about" in href or text.
+  const re = /<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+  while ((match = re.exec(html))) {
+    const href = match[1];
+    const text = match[2].replace(/<[^>]+>/g, ' ');
+    const combined = `${href} ${text}`.toLowerCase();
+    if (!combined.includes('about')) continue;
+
+    try {
+      const u = new URL(href, baseUrl);
+      if (u.origin !== baseUrl.origin) return '';
+      return u.toString();
+    } catch {
+      return '';
+    }
+  }
+  return '';
+};
+
 const extractText = (html) => {
   if (!html) return '';
 
@@ -109,9 +139,26 @@ const extractText = (html) => {
   // Collapse whitespace
   s = s.replace(/\s+/g, ' ').trim();
 
-  // Cap
-  if (s.length > 20000) s = s.slice(0, 20000);
   return s;
+};
+
+const dropBoilerplateSentences = (sentences) => {
+  const bad = [
+    'cookie',
+    'privacy',
+    'terms',
+    'consent',
+    'accept all',
+    'manage preferences',
+    'subscribe',
+    'newsletter',
+  ];
+
+  return (sentences || []).filter((s) => {
+    const t = String(s || '').toLowerCase();
+    if (!t) return false;
+    return !bad.some((k) => t.includes(k));
+  });
 };
 
 const splitSentences = (text) => {
@@ -123,19 +170,28 @@ const splitSentences = (text) => {
   return parts.map((p) => p.trim()).filter(Boolean);
 };
 
-const generateNarrative = ({ text, insuredName }) => {
-  const sentences = splitSentences(text);
+const generateNarrative = ({ metaDescription, text, insuredName }) => {
+  let sentences = splitSentences(text);
+  sentences = dropBoilerplateSentences(sentences);
+
   if (!sentences.length) {
     const prefix = insuredName ? `${insuredName} — ` : '';
     return `${prefix}No readable content found on the provided website. (auto-generated from website; please verify)`;
   }
 
   const preferred = sentences.filter((s) => /\b(about|since|founded|established|we are|who we are)\b/i.test(s));
+  const base = preferred.length ? preferred : sentences;
 
-  const pick = (preferred.length ? preferred : sentences).slice(0, 4);
-
+  const pick = base.slice(0, 4);
   const prefix = insuredName ? `${insuredName} — ` : '';
-  return `${prefix}${pick.join(' ')} (auto-generated from website; please verify)`;
+
+  const meta = String(metaDescription || '').trim();
+  const metaSentence = meta ? (meta.endsWith('.') ? meta : `${meta}.`) : '';
+
+  const main = pick.join(' ');
+  const combined = [metaSentence, main].filter(Boolean).join(' ');
+
+  return `${prefix}${combined} (auto-generated from website; please verify)`;
 };
 
 app.post('/api/narrative', async (req, res) => {
@@ -165,11 +221,48 @@ app.post('/api/narrative', async (req, res) => {
     }
 
     const html = await r.text();
-    const text = extractText(html);
 
-    const narrative = generateNarrative({ text, insuredName: body.insuredName });
+    const metaDescription = extractMetaDescription(html);
 
-    return res.json({ narrative, sourceUrl: url.toString() });
+    // Optional: fetch /about page (same-origin) to enrich text.
+    const aboutUrlStr = extractAboutLink(html, url);
+    let aboutText = '';
+    if (aboutUrlStr) {
+      try {
+        const aboutUrl = new URL(aboutUrlStr);
+        const aboutCtrl = new AbortController();
+        const aboutTimeout = setTimeout(() => aboutCtrl.abort(), 15000);
+
+        const aboutRes = await fetch(aboutUrl.toString(), {
+          signal: aboutCtrl.signal,
+          redirect: 'follow',
+          headers: {
+            'User-Agent': 'submission-builder/1.0 (+non-ai-narrative)',
+            'Accept': 'text/html,application/xhtml+xml',
+          },
+        }).finally(() => clearTimeout(aboutTimeout));
+
+        const aboutCt = aboutRes.headers.get('content-type') || '';
+        if (aboutRes.ok && aboutCt.toLowerCase().includes('text/html')) {
+          const aboutHtml = await aboutRes.text();
+          aboutText = extractText(aboutHtml);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const text = [extractText(html), aboutText].filter(Boolean).join(' ');
+    const cappedText = text.length > 20000 ? text.slice(0, 20000) : text;
+
+    const narrative = generateNarrative({ metaDescription, text: cappedText, insuredName: body.insuredName });
+
+    const payload = { narrative, sourceUrl: url.toString() };
+    if (body.debug) {
+      payload.extractedTextSample = cappedText.slice(0, 500);
+    }
+
+    return res.json(payload);
   } catch (err) {
     const msg = err?.message || 'Unknown error';
     return res.status(400).json({ error: msg });
