@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "express": "^5.2.1",
+    "he": "^1.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "xlsx": "^0.18.5",

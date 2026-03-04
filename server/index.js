@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { setTimeout as sleep } from 'node:timers/promises';
+import he from 'he';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 
@@ -83,7 +83,7 @@ const extractMetaDescription = (html) => {
   if (!m) return '';
   const tag = m[0];
   const content = tag.match(/content=["']([^"']+)["']/i)?.[1] || '';
-  return String(content).replace(/\s+/g, ' ').trim();
+  return he.decode(String(content)).replace(/\s+/g, ' ').trim();
 };
 
 const extractAboutLink = (html, baseUrl) => {
@@ -138,6 +138,9 @@ const extractText = (html) => {
 
   // Collapse whitespace
   s = s.replace(/\s+/g, ' ').trim();
+
+  // Decode HTML entities (e.g. &amp; / &#039;)
+  s = he.decode(s);
 
   return s;
 };

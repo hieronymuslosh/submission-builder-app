@@ -891,15 +891,18 @@ const App = () => {
             ></textarea>
             <button
               onClick={fetchInsuredNarrative}
-              disabled={isFetchingNarrative || !insuredName}
+              disabled={isFetchingNarrative || !insuredWebsite}
               className={`mt-2 py-2 px-4 rounded-md shadow-sm text-sm font-medium transition duration-300 ease-in-out ${
-                isFetchingNarrative
+                isFetchingNarrative || !insuredWebsite
                   ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
             >
               {isFetchingNarrative ? 'Fetching Narrative...' : 'Fetch Narrative'}
             </button>
+            {!insuredWebsite && (
+              <div className="mt-1 text-xs text-gray-600">Enter a website to fetch narrative</div>
+            )}
           </div>
 
           {/* Interest with Fetch Button */}
