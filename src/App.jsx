@@ -258,20 +258,34 @@ const App = () => {
     }
   };
 
-  // Function to fetch insured narrative using Google Search and LLM (MOCKED)
+  // Non-AI narrative fetch: hit local backend which scrapes the insured website.
   const fetchInsuredNarrative = async () => {
-    if (!insuredName) {
-      setInsuredNarrative('Please enter an Insured Name to fetch a narrative.');
+    if (!insuredWebsite) {
+      setInsuredNarrative('Please enter an Insured Website to fetch a narrative.');
       return;
     }
 
     setIsFetchingNarrative(true);
-    setInsuredNarrative('Fetching narrative, please wait...');
+    setInsuredNarrative('Fetching narrative from website, please wait...');
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const mockedNarrative = `This is a *mocked* narrative for ${insuredName}. It's a leading global logistics provider specializing in freight forwarding, warehousing, and supply chain management. This is for demonstration purposes.`;
-    setInsuredNarrative(mockedNarrative);
-    setIsFetchingNarrative(false);
+    try {
+      const r = await fetch('/api/narrative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ website: insuredWebsite, insuredName }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        throw new Error(data?.error || `Request failed (HTTP ${r.status})`);
+      }
+
+      setInsuredNarrative(data?.narrative || 'No narrative returned.');
+    } catch (err) {
+      setInsuredNarrative(`Failed to fetch narrative: ${err?.message || err}`);
+    } finally {
+      setIsFetchingNarrative(false);
+    }
   };
 
   // Function to fetch insured address using Google Search and LLM (MOCKED)
