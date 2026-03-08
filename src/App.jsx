@@ -80,6 +80,7 @@ const App = () => {
   const [excelError, setExcelError] = useState('');
   const [isParsingExcel, setIsParsingExcel] = useState(false);
   const [autofillSummary, setAutofillSummary] = useState(null);
+  const [showImportDetails, setShowImportDetails] = useState(false);
 
   // Ref for the div containing the generated email body
   const emailBodyDivRef = useRef(null);
@@ -636,124 +637,138 @@ const App = () => {
 
           {excelMeta && (
             <div className="mt-4 grid grid-cols-1 gap-3">
-              <div className="text-sm text-gray-700">
-                <span className="font-medium">File:</span> {excelMeta.fileName}
-              </div>
-              <div className="text-sm text-gray-700">
-                <span className="font-medium">Sheets:</span> {excelMeta.sheetNames?.join(', ') || '—'}
-              </div>
+              <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-green-900">Import ready</div>
+                    <div className="mt-1 text-sm text-green-900/90">{excelMeta.fileName}</div>
+                    <div className="mt-1 text-xs text-green-900/70">Sheets: {excelMeta.sheetNames?.join(', ') || '—'}</div>
+                    <div className="mt-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+                      {autofillSummary ? 'Autofill complete' : 'File parsed'}
+                    </div>
+                  </div>
 
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="px-3 py-2 rounded-md bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
-                  onClick={attemptAutofillFromRawText}
-                  disabled={!excelRawText}
-                >
-                  Attempt autofill
-                </button>
-                <div className="text-xs text-gray-600 self-center">
-                  v1: insured name/website/address/inception date/status only (best-effort)
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="px-3 py-2 rounded-md bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+                      onClick={attemptAutofillFromRawText}
+                      disabled={!excelRawText}
+                    >
+                      Attempt autofill
+                    </button>
+                    <button
+                      type="button"
+                      className="px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      onClick={() => setShowImportDetails((v) => !v)}
+                    >
+                      {showImportDetails ? 'Hide import details' : 'Show import details'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {autofillSummary && (
-                <div className="rounded-md bg-white border border-gray-200 p-3">
-                  <div className="text-sm font-semibold text-gray-800 mb-2">Autofill results</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>
-                      <span className="font-medium">Last run:</span>{' '}
-                      {autofillSummary.ranAt ? new Date(autofillSummary.ranAt).toLocaleString() : '(unknown)'}
-                      {autofillSummary.mode ? ` (${autofillSummary.mode})` : ''}
-                    </li>
-                    <li>
-                      <span className="font-medium">Loss history filled:</span> {`${autofillSummary.lossFilledCount ?? 0}/5`}
-                    </li>
-                    <li>
-                      <span className="font-medium">Insured name:</span> {autofillSummary.insuredName || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Business type:</span> {autofillSummary.businessType || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Stock BOV:</span> {autofillSummary.stockBov || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Incoming transit BOV:</span> {autofillSummary.incomingTransitBov || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Outgoing transit BOV:</span> {autofillSummary.outgoingTransitBov || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Inception date:</span> {autofillSummary.inceptionDate || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Estimated sales:</span> {autofillSummary.estimatedSales || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Max TIV:</span> {autofillSummary.maxTIV || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Average TIV:</span> {autofillSummary.averageTIV || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Max any one location:</span> {autofillSummary.maxAnyOneLocation || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Deductible AOP (stock):</span> {autofillSummary.deductibleAOPStock || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Deductible CAT (stock):</span> {autofillSummary.deductibleCATStock || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Deductible transit:</span> {autofillSummary.deductibleTransit || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Limit AOP (stock):</span> {autofillSummary.limitAOPStock || '(blank)'}
-                      {autofillSummary.aopLimitStockFromSov ? ` (SOV: ${autofillSummary.aopLimitStockFromSov})` : ''}
-                    </li>
-                    <li>
-                      <span className="font-medium">Limit CAT (stock):</span> {autofillSummary.limitCATStock || '(blank)'}
-                      {autofillSummary.catLimitStockFromSov ? ` (SOV: ${autofillSummary.catLimitStockFromSov}${autofillSummary.catLimitStockState ? ` in ${autofillSummary.catLimitStockState}` : ''})` : ''}
-                    </li>
-                    <li>
-                      <span className="font-medium">Transit limit:</span> {autofillSummary.transitLimit || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Average conveyance:</span> {autofillSummary.averageConveyance || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Incoming transit total:</span> {autofillSummary.incomingTransitVolumeTotal || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Outgoing transit total:</span> {autofillSummary.outgoingTransitVolumeTotal || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Primary %:</span> {autofillSummary.primaryPct || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Contingent %:</span> {autofillSummary.contingentPct || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Incoming domestic %:</span> {autofillSummary.incomingDomesticPct || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Incoming international %:</span> {autofillSummary.incomingInternationalPct || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Outgoing domestic %:</span> {autofillSummary.outgoingDomesticPct || '(blank)'}
-                    </li>
-                    <li>
-                      <span className="font-medium">Outgoing international %:</span> {autofillSummary.outgoingInternationalPct || '(blank)'}
-                    </li>
-                  </ul>
-                </div>
+              {showImportDetails && (
+                <>
+                  {autofillSummary && (
+                    <div className="rounded-md bg-white border border-gray-200 p-3">
+                      <div className="text-sm font-semibold text-gray-800 mb-2">Autofill results</div>
+                      <ul className="text-sm text-gray-700 space-y-1">
+                        <li>
+                          <span className="font-medium">Last run:</span>{' '}
+                          {autofillSummary.ranAt ? new Date(autofillSummary.ranAt).toLocaleString() : '(unknown)'}
+                          {autofillSummary.mode ? ` (${autofillSummary.mode})` : ''}
+                        </li>
+                        <li>
+                          <span className="font-medium">Loss history filled:</span> {`${autofillSummary.lossFilledCount ?? 0}/5`}
+                        </li>
+                        <li>
+                          <span className="font-medium">Insured name:</span> {autofillSummary.insuredName || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Business type:</span> {autofillSummary.businessType || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Stock BOV:</span> {autofillSummary.stockBov || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Incoming transit BOV:</span> {autofillSummary.incomingTransitBov || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Outgoing transit BOV:</span> {autofillSummary.outgoingTransitBov || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Inception date:</span> {autofillSummary.inceptionDate || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Estimated sales:</span> {autofillSummary.estimatedSales || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Max TIV:</span> {autofillSummary.maxTIV || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Average TIV:</span> {autofillSummary.averageTIV || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Max any one location:</span> {autofillSummary.maxAnyOneLocation || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Deductible AOP (stock):</span> {autofillSummary.deductibleAOPStock || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Deductible CAT (stock):</span> {autofillSummary.deductibleCATStock || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Deductible transit:</span> {autofillSummary.deductibleTransit || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Limit AOP (stock):</span> {autofillSummary.limitAOPStock || '(blank)'}
+                          {autofillSummary.aopLimitStockFromSov ? ` (SOV: ${autofillSummary.aopLimitStockFromSov})` : ''}
+                        </li>
+                        <li>
+                          <span className="font-medium">Limit CAT (stock):</span> {autofillSummary.limitCATStock || '(blank)'}
+                          {autofillSummary.catLimitStockFromSov ? ` (SOV: ${autofillSummary.catLimitStockFromSov}${autofillSummary.catLimitStockState ? ` in ${autofillSummary.catLimitStockState}` : ''})` : ''}
+                        </li>
+                        <li>
+                          <span className="font-medium">Transit limit:</span> {autofillSummary.transitLimit || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Average conveyance:</span> {autofillSummary.averageConveyance || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Incoming transit total:</span> {autofillSummary.incomingTransitVolumeTotal || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Outgoing transit total:</span> {autofillSummary.outgoingTransitVolumeTotal || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Primary %:</span> {autofillSummary.primaryPct || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Contingent %:</span> {autofillSummary.contingentPct || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Incoming domestic %:</span> {autofillSummary.incomingDomesticPct || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Incoming international %:</span> {autofillSummary.incomingInternationalPct || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Outgoing domestic %:</span> {autofillSummary.outgoingDomesticPct || '(blank)'}
+                        </li>
+                        <li>
+                          <span className="font-medium">Outgoing international %:</span> {autofillSummary.outgoingInternationalPct || '(blank)'}
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="rounded-md bg-white border border-gray-200 p-3">
+                    <div className="text-sm font-semibold text-gray-800 mb-2">Raw text preview</div>
+                    <pre className="text-xs text-gray-700 max-h-56 overflow-auto whitespace-pre-wrap">{excelRawText}</pre>
+                  </div>
+                </>
               )}
-
-              <div className="rounded-md bg-white border border-gray-200 p-3">
-                <div className="text-sm font-semibold text-gray-800 mb-2">Raw text preview</div>
-                <pre className="text-xs text-gray-700 max-h-56 overflow-auto whitespace-pre-wrap">{excelRawText}</pre>
-              </div>
             </div>
           )}
         </div>

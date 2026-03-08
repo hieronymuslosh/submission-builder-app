@@ -11,6 +11,7 @@ const app = express();
 app.use(express.json({ limit: '200kb' }));
 
 // ---- Basic auth (prototype) ----
+const APP_USERNAME = 'agrmarine';
 const APP_PASSWORD = process.env.APP_PASSWORD || '';
 
 const unauthorized = (res) => {
@@ -40,7 +41,7 @@ app.use((req, res, next) => {
   const user = decoded.slice(0, idx);
   const pass = decoded.slice(idx + 1);
 
-  if (!user || pass !== APP_PASSWORD) return unauthorized(res);
+  if (user !== APP_USERNAME || pass !== APP_PASSWORD) return unauthorized(res);
 
   next();
 });
