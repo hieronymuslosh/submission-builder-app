@@ -1,5 +1,21 @@
 import { formatCurrencyForEmail, formatPercentageForEmail } from './formatters.js';
 
+const PARAGRAPH_STYLE = 'margin: 0 0 12px 0; line-height: 1.5; mso-line-height-rule: exactly;';
+const PARAGRAPH_TIGHT_STYLE = 'margin: 0 0 8px 0; line-height: 1.5; mso-line-height-rule: exactly;';
+const SECTION_STYLE = 'margin: 0 0 20px 0;';
+const LIST_STYLE = 'margin: 0 0 12px 0; padding-left: 20px;';
+const LIST_ITEM_STYLE = 'margin: 0 0 6px 0; line-height: 1.5; mso-line-height-rule: exactly;';
+const RULE_STYLE = 'border: none; border-top: 1px solid #ccc; margin: 12px 0;';
+
+const paragraph = (content, style = PARAGRAPH_STYLE) => `<p style="${style}">${content}</p>`;
+const sectionHeading = (title) => paragraph(`<strong><u>${title}</u></strong>`, PARAGRAPH_STYLE);
+const formatInceptionDate = (inceptionDate) => {
+  if (!inceptionDate) return '';
+  const [year, month, day] = inceptionDate.split('-');
+  if (!year || !month || !day) return inceptionDate;
+  return `${day}/${month}/${year}`;
+};
+
 // Email generation (extracted from App.jsx)
 // Input: an object containing all state fields
 // Output: { subject, bodyHtml }
@@ -63,18 +79,19 @@ export const generateEmail = ({
     return bovValue === 'Other' ? bovOtherValue || 'Other (N/A)' : bovValue || 'N/A';
   };
 
+  const formattedInceptionDate = isDateTBA ? 'To Be Advised' : formatInceptionDate(inceptionDate) || 'N/A';
+
   const lossHistoryDetails = (lossHistory || [])
     .map(
       (entry, index) =>
-        `<p style="margin-bottom: 0.5em; line-height: 1.5;">${new Date().getFullYear() - (4 - index)}: ${entry || 'No losses reported'}</p>`,
+        paragraph(`${new Date().getFullYear() - (4 - index)}: ${entry || 'No losses reported'}`, PARAGRAPH_TIGHT_STYLE),
     )
     .join('');
 
   // Determine the date part for the subject line
   let subjectDatePart = 'TBA';
   if (!isDateTBA && inceptionDate) {
-    const [year, month, day] = inceptionDate.split('-'); // YYYY-MM-DD
-    subjectDatePart = `${day}/${month}/${year.slice(2)}`; // DD/MM/YY
+    subjectDatePart = formatInceptionDate(inceptionDate) || inceptionDate;
   }
 
   const subjectStatusPart = businessStatus || 'N/A';
@@ -88,29 +105,27 @@ export const generateEmail = ({
   let transitSectionHtml = '';
   if (includeTransitInfo) {
     transitSectionHtml = `
-<div style="margin-bottom: 1.5em;">
-<p style="margin-top: 1.5em; margin-bottom: 0.8em; line-height: 1.5;"><strong><u>Transits:</u></strong></p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Max Value Any One Conveyance:</strong> ${formatCurrencyForEmail(maxConveyance)}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Average Value Any One Conveyance:</strong> ${formatCurrencyForEmail(averageConveyance)}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Estimated Sales for Forthcoming Policy Period:</strong> ${isEstimatedSalesUnknown ? 'To Be Advised' : formatCurrencyForEmail(estimatedSales)}</p>
-
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Incoming Transit Volume:</strong> ${formatCurrencyForEmail(incomingTransitVolumeTotal)}</p>
-<ul style="margin-top: 0; margin-bottom: 0.5em; padding-left: 20px;">
-  <li style="margin-bottom: 0.2em; line-height: 1.5;">Domestic: ${formatPercentageForEmail(incomingDomesticPct)}</li>
-  <li style="margin-bottom: 0.2em; line-height: 1.5;">International: ${formatPercentageForEmail(incomingInternationalPct)}</li>
-  <li style="margin-bottom: 0.2em; line-height: 1.5;">Primary: ${formatPercentageForEmail(incomingPrimaryPct)}</li>
-  <li style="margin-bottom: 0.2em; line-height: 1.5;">Contingent: ${formatPercentageForEmail(incomingContingentPct)}</li>
+<div style="${SECTION_STYLE}">
+${sectionHeading('Transits:')}
+${paragraph(`<strong>Max Value Any One Conveyance:</strong> ${formatCurrencyForEmail(maxConveyance)}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Average Value Any One Conveyance:</strong> ${formatCurrencyForEmail(averageConveyance)}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Estimated Sales for Forthcoming Policy Period:</strong> ${isEstimatedSalesUnknown ? 'To Be Advised' : formatCurrencyForEmail(estimatedSales)}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Incoming Transit Volume:</strong> ${formatCurrencyForEmail(incomingTransitVolumeTotal)}`, PARAGRAPH_TIGHT_STYLE)}
+<ul style="${LIST_STYLE}">
+  <li style="${LIST_ITEM_STYLE}">Domestic: ${formatPercentageForEmail(incomingDomesticPct)}</li>
+  <li style="${LIST_ITEM_STYLE}">International: ${formatPercentageForEmail(incomingInternationalPct)}</li>
+  <li style="${LIST_ITEM_STYLE}">Primary: ${formatPercentageForEmail(incomingPrimaryPct)}</li>
+  <li style="${LIST_ITEM_STYLE}">Contingent: ${formatPercentageForEmail(incomingContingentPct)}</li>
 </ul>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Incoming Transit Basis of Valuation:</strong> ${getBovDisplay(bovIncomingTransit, bovIncomingTransitOther)}</p>
-
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Outgoing Transit Volume:</strong> ${formatCurrencyForEmail(outgoingTransitVolumeTotal)}</p>
-<ul style="margin-top: 0; margin-bottom: 0.5em; padding-left: 20px;">
-  <li style="margin-bottom: 0.2em; line-height: 1.5;">Domestic: ${formatPercentageForEmail(outgoingDomesticPct)}</li>
-  <li style="margin-bottom: 0.2em; line-height: 1.5;">International: ${formatPercentageForEmail(outgoingInternationalPct)}</li>
-  <li style="margin-bottom: 0.2em; line-height: 1.5;">Primary: ${formatPercentageForEmail(outgoingPrimaryPct)}</li>
-  <li style="margin-bottom: 0.2em; line-height: 1.5;">Contingent: ${formatPercentageForEmail(outgoingContingentPct)}</li>
+${paragraph(`<strong>Incoming Transit Basis of Valuation:</strong> ${getBovDisplay(bovIncomingTransit, bovIncomingTransitOther)}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Outgoing Transit Volume:</strong> ${formatCurrencyForEmail(outgoingTransitVolumeTotal)}`, PARAGRAPH_TIGHT_STYLE)}
+<ul style="${LIST_STYLE}">
+  <li style="${LIST_ITEM_STYLE}">Domestic: ${formatPercentageForEmail(outgoingDomesticPct)}</li>
+  <li style="${LIST_ITEM_STYLE}">International: ${formatPercentageForEmail(outgoingInternationalPct)}</li>
+  <li style="${LIST_ITEM_STYLE}">Primary: ${formatPercentageForEmail(outgoingPrimaryPct)}</li>
+  <li style="${LIST_ITEM_STYLE}">Contingent: ${formatPercentageForEmail(outgoingContingentPct)}</li>
 </ul>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Outgoing Transit Basis of Valuation:</strong> ${getBovDisplay(bovOutgoingTransit, bovOutgoingTransitOther)}</p>
+${paragraph(`<strong>Outgoing Transit Basis of Valuation:</strong> ${getBovDisplay(bovOutgoingTransit, bovOutgoingTransitOther)}`, PARAGRAPH_TIGHT_STYLE)}
 </div>
 `;
   }
@@ -118,92 +133,89 @@ export const generateEmail = ({
   let storageSectionHtml = '';
   if (includeStockInfo) {
     storageSectionHtml = `
-<div style="margin-bottom: 1.5em;">
-<p style="margin-top: 1.5em; margin-bottom: 0.8em; line-height: 1.5;"><strong><u>Storage:</u></strong></p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Max TIV:</strong> ${formatCurrencyForEmail(maxTIV)}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Average TIV:</strong> ${formatCurrencyForEmail(averageTIV)}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Max Any One Location:</strong> ${formatCurrencyForEmail(maxAnyOneLocation)}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Stock Basis of Valuation:</strong> ${getBovDisplay(bovStock, bovStockOther)}</p>
+<div style="${SECTION_STYLE}">
+${sectionHeading('Storage:')}
+${paragraph(`<strong>Max TIV:</strong> ${formatCurrencyForEmail(maxTIV)}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Average TIV:</strong> ${formatCurrencyForEmail(averageTIV)}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Max Any One Location:</strong> ${formatCurrencyForEmail(maxAnyOneLocation)}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Stock Basis of Valuation:</strong> ${getBovDisplay(bovStock, bovStockOther)}`, PARAGRAPH_TIGHT_STYLE)}
 </div>
 `;
   }
 
   let deductiblesSection = '';
   if ((includeStockInfo && (deductibleAOPStock || deductibleCATStock)) || (includeTransitInfo && deductibleTransit)) {
-    deductiblesSection = `
-<div style="margin-bottom: 1.5em;">
-<p style="margin-top: 1.5em; margin-bottom: 0.8em; line-height: 1.5;"><strong><u>Target Deductibles:</u></strong></p>
-<ul style="margin-top: 0; margin-bottom: 0.5em; padding-left: 20px;">`;
+    let deductibleItems = '';
 
     if (includeStockInfo) {
-      deductiblesSection += `<li style="margin-bottom: 0.2em; line-height: 1.5;">AOP (Stock): ${formatCurrencyForEmail(deductibleAOPStock)}</li>`;
-      deductiblesSection += `<li style="margin-bottom: 0.2em; line-height: 1.5;">CAT (Earthquake, Flood and Windstorm): ${formatCurrencyForEmail(deductibleCATStock)}</li>`;
+      deductibleItems += `<li style="${LIST_ITEM_STYLE}">AOP (Stock): ${formatCurrencyForEmail(deductibleAOPStock)}</li>`;
+      deductibleItems += `<li style="${LIST_ITEM_STYLE}">CAT (Earthquake, Flood and Windstorm): ${formatCurrencyForEmail(deductibleCATStock)}</li>`;
     }
 
     if (includeTransitInfo) {
-      deductiblesSection += `<li style="margin-bottom: 0.2em; line-height: 1.5;">Transit: ${formatCurrencyForEmail(deductibleTransit)}</li>`;
+      deductibleItems += `<li style="${LIST_ITEM_STYLE}">Transit: ${formatCurrencyForEmail(deductibleTransit)}</li>`;
     }
 
-    deductiblesSection += `</ul></div>`;
+    deductiblesSection = `
+<div style="${SECTION_STYLE}">
+${sectionHeading('Target Deductibles:')}
+<ul style="${LIST_STYLE}">${deductibleItems}</ul>
+</div>`;
   }
 
   let limitsSection = '';
   if ((includeStockInfo && (limitAOPStock || limitCATStock)) || (includeTransitInfo && limitTransit)) {
-    limitsSection = `
-<div style="margin-bottom: 1.5em;">
-<p style="margin-top: 1.5em; margin-bottom: 0.8em; line-height: 1.5;"><strong><u>Limits:</u></strong></p>
-<ul style="margin-top: 0; margin-bottom: 0.5em; padding-left: 20px;">`;
+    let limitItems = '';
 
     if (includeStockInfo) {
-      limitsSection += `<li style="margin-bottom: 0.2em; line-height: 1.5;">AOP (Stock): ${formatCurrencyForEmail(limitAOPStock)}</li>`;
-      limitsSection += `<li style="margin-bottom: 0.2em; line-height: 1.5;">CAT (Earthquake, Flood and Windstorm): ${formatCurrencyForEmail(limitCATStock)} (annually aggregated)</li>`;
+      limitItems += `<li style="${LIST_ITEM_STYLE}">AOP (Stock): ${formatCurrencyForEmail(limitAOPStock)}</li>`;
+      limitItems += `<li style="${LIST_ITEM_STYLE}">CAT (Earthquake, Flood and Windstorm): ${formatCurrencyForEmail(limitCATStock)} (annually aggregated)</li>`;
     }
 
     if (includeTransitInfo) {
-      limitsSection += `<li style="margin-bottom: 0.2em; line-height: 1.5;">Transit: ${formatCurrencyForEmail(limitTransit)}</li>`;
+      limitItems += `<li style="${LIST_ITEM_STYLE}">Transit: ${formatCurrencyForEmail(limitTransit)}</li>`;
     }
 
-    limitsSection += `</ul></div>`;
+    limitsSection = `
+<div style="${SECTION_STYLE}">
+${sectionHeading('Limits:')}
+<ul style="${LIST_STYLE}">${limitItems}</ul>
+</div>`;
   }
 
   const bodyHtml = `
-<p style="margin-bottom: 1em; line-height: 1.5;">Dear Underwriters,</p>
-
-<p style="margin-bottom: 1em; line-height: 1.5;">Please find below the details for a new Marine Cargo / Stock Throughput submission for your consideration.</p>
-
-<hr style="border: none; border-top: 1px solid #ccc; margin: 1em 0;">
-<p style="margin-bottom: 1em; line-height: 1.5;"><strong><u>SUBMISSION DETAILS</u></strong></p>
-<hr style="border: none; border-top: 1px solid #ccc; margin: 1em 0;">
-
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Insured Name:</strong> ${insuredName || 'N/A'}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Insured Website:</strong> ${insuredWebsite || 'N/A'}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Insured Address:</strong> ${insuredAddress || 'N/A'}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Business Type:</strong> ${businessType || 'N/A'}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Inception Date:</strong> ${isDateTBA ? 'To Be Advised' : inceptionDate || 'N/A'}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Business Status:</strong> ${businessStatus || 'N/A'}</p>
-
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Insured Narrative:</strong><br>${insuredNarrative || 'N/A'}</p>
-
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Interest:</strong><br>${interest || 'N/A'}</p>
+<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #000;">
+${paragraph('Dear Underwriters,')}
+${paragraph('Please find below the details for a new Marine Cargo / Stock Throughput submission for your consideration.')}
+<hr style="${RULE_STYLE}">
+${sectionHeading('SUBMISSION DETAILS')}
+<hr style="${RULE_STYLE}">
+${paragraph(`<strong>Insured Name:</strong> ${insuredName || 'N/A'}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Insured Website:</strong> ${insuredWebsite || 'N/A'}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Insured Address:</strong> ${insuredAddress || 'N/A'}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Business Type:</strong> ${businessType || 'N/A'}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Inception Date:</strong> ${formattedInceptionDate}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Business Status:</strong> ${businessStatus || 'N/A'}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Insured Narrative:</strong>`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(insuredNarrative || 'N/A')}
+${paragraph(`<strong>Interest:</strong>`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(interest || 'N/A')}
 ${transitSectionHtml}
 ${storageSectionHtml}
-<div style="margin-bottom: 1.5em;">
-<p style="margin-top: 1.5em; margin-bottom: 0.8em; line-height: 1.5;"><strong><u>Loss Record (5-Year History):</u></strong></p>
+<div style="${SECTION_STYLE}">
+${sectionHeading('Loss Record (5-Year History):')}
 ${lossHistoryDetails}
 </div>
-${isRenewal ? `<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Expiring Premium:</strong> ${formatCurrencyForEmail(expiringPremium)}</p>` : ''}
+${isRenewal ? paragraph(`<strong>Expiring Premium:</strong> ${formatCurrencyForEmail(expiringPremium)}`, PARAGRAPH_TIGHT_STYLE) : ''}
 ${deductiblesSection}
 ${limitsSection}
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Target Premium:</strong> ${formatCurrencyForEmail(targetPremium)}</p>
-<p style="margin-bottom: 0.5em; line-height: 1.5;"><strong>Brokerage:</strong> ${formatPercentageForEmail(brokerage)}</p>
-
-<hr style="border: none; border-top: 1px solid #ccc; margin: 1em 0;">
-
-<p style="margin-bottom: 1em; line-height: 1.5;">We look forward to your terms. Please let us know if you require any further information or clarification to provide a quotation.</p>
-
-<p style="margin-bottom: 1em; line-height: 1.5;">Kind regards,</p>
-
-<p style="margin-bottom: 0.5em; line-height: 1.5;">[Your Name/Your Company Name]<br>[Your Contact Information]</p>
+${paragraph(`<strong>Target Premium:</strong> ${formatCurrencyForEmail(targetPremium)}`, PARAGRAPH_TIGHT_STYLE)}
+${paragraph(`<strong>Brokerage:</strong> ${formatPercentageForEmail(brokerage)}`, PARAGRAPH_TIGHT_STYLE)}
+<hr style="${RULE_STYLE}">
+${paragraph('We look forward to your terms. Please let us know if you require any further information or clarification to provide a quotation.')}
+${paragraph('Kind regards,')}
+${paragraph('[Your Name/Your Company Name]<br>[Your Contact Information]', PARAGRAPH_TIGHT_STYLE)}
+</div>
 `;
 
   return { subject, bodyHtml };
